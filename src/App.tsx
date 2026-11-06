@@ -1,3 +1,6 @@
+/**
+ * Recorder Studio - Modern Rhythm Game & Flute Fingering Visualizer
+ */
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Music2,
