@@ -4,11 +4,12 @@ import {
   X,
   Play,
   Upload,
-  Sparkles,
   Music2,
   Clock,
   Gauge,
   CheckCircle,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react'
 import type { SongMetadata } from '../types/music'
 
@@ -18,6 +19,8 @@ interface Props {
   songs: SongMetadata[]
   currentSongId: string
   onSelectSong: (song: SongMetadata) => void
+  onDeleteSong: (songId: string) => void
+  onRestoreDefaults: () => void
   onOpenUploadModal: () => void
 }
 
@@ -29,10 +32,13 @@ export const SongCatalogModal: React.FC<Props> = ({
   songs,
   currentSongId,
   onSelectSong,
+  onDeleteSong,
+  onRestoreDefaults,
   onOpenUploadModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all')
+  const [songToDelete, setSongToDelete] = useState<SongMetadata | null>(null)
 
   const categories: { key: CategoryFilter; label: string; count: number }[] = useMemo(() => {
     return [
@@ -84,7 +90,7 @@ export const SongCatalogModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="relative bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-5 md:p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div className="flex items-center gap-3">
@@ -93,20 +99,20 @@ export const SongCatalogModal: React.FC<Props> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                Catálogo de Canciones para Flauta
+                Catálogo de Canciones de Flauta
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  {songs.length} disponibles
+                  {songs.length} en base de datos
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Selecciona una canción completa para practicar con digitaciones reales o sube la tuya.
+                Selecciona canciones, elimina las que no desees o sube nuevas partituras.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -140,7 +146,7 @@ export const SongCatalogModal: React.FC<Props> = ({
               <button
                 key={cat.key}
                 onClick={() => setSelectedCategory(cat.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
                   selectedCategory === cat.key
                     ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
                     : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
@@ -162,18 +168,34 @@ export const SongCatalogModal: React.FC<Props> = ({
         {/* Songs Grid Container */}
         <div className="p-4 md:p-6 overflow-y-auto flex-1 space-y-3">
           {filteredSongs.length === 0 ? (
-            <div className="py-12 text-center space-y-3">
+            <div className="py-12 text-center space-y-4">
               <Music2 className="w-12 h-12 text-slate-600 mx-auto" />
-              <p className="text-slate-400 font-medium">No se encontraron canciones con ese criterio.</p>
-              <button
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedCategory('all')
-                }}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
-              >
-                Restablecer filtros
-              </button>
+              <div className="space-y-1">
+                <p className="text-white font-bold text-base">No hay canciones disponibles en esta sección</p>
+                <p className="text-slate-400 text-xs">
+                  {songs.length === 0
+                    ? 'Has borrado todas las canciones de tu base de datos local.'
+                    : 'Prueba cambiando de categoría o usando otros términos de búsqueda.'}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={onRestoreDefaults}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400 flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/20"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Restablecer Canciones Predeterminadas
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setSelectedCategory('all')
+                  }}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                >
+                  Ver Todas
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -225,7 +247,7 @@ export const SongCatalogModal: React.FC<Props> = ({
                       </p>
                     </div>
 
-                    {/* Stats & Play Button */}
+                    {/* Stats & Actions */}
                     <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-xs text-slate-400">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 font-mono text-[11px]">
@@ -236,25 +258,40 @@ export const SongCatalogModal: React.FC<Props> = ({
                           {song.notes.length} notas
                         </span>
                         <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
-                          Rango: {noteRange}
+                          {noteRange}
                         </span>
                       </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelectSong(song)
-                          onClose()
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
-                          isSelected
-                            ? 'bg-cyan-500 text-slate-950'
-                            : 'bg-slate-800 text-slate-200 group-hover:bg-cyan-500 group-hover:text-slate-950'
-                        }`}
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>{isSelected ? 'Jugando' : 'Seleccionar'}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {/* Delete Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSongToDelete(song)
+                          }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                          title={`Eliminar "${song.title}" de la base de datos`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Play Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectSong(song)
+                            onClose()
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                              : 'bg-slate-800 text-slate-200 group-hover:bg-cyan-500 group-hover:text-slate-950'
+                          }`}
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>{isSelected ? 'Jugando' : 'Seleccionar'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -263,11 +300,61 @@ export const SongCatalogModal: React.FC<Props> = ({
           )}
         </div>
 
+        {/* Delete Confirmation Dialog */}
+        {songToDelete && (
+          <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+            <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 text-red-400">
+                <div className="p-2.5 rounded-2xl bg-red-500/10 border border-red-500/20">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">¿Eliminar canción de la BD?</h3>
+                  <p className="text-xs text-slate-400">Esta acción removerá la canción de tu biblioteca local.</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+                <p className="text-sm font-bold text-white">{songToDelete.title}</p>
+                <p className="text-xs text-slate-400">{songToDelete.subtitle} • {songToDelete.artist}</p>
+                <p className="text-[11px] text-slate-500 font-mono mt-1">
+                  {songToDelete.notes.length} notas • {songToDelete.tempo} BPM • {songToDelete.category}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setSongToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteSong(songToDelete.id)
+                    setSongToDelete(null)
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition flex items-center gap-1.5 shadow-lg shadow-red-600/30 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Sí, Eliminar de la BD</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="p-4 md:px-6 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>¿Tienes tu propia partitura? Súbela en MusicXML, MIDI o código ABC</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onRestoreDefaults}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer"
+              title="Restaurar las 7 canciones predeterminadas originales en la base de datos"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Restablecer Predeterminadas</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -276,14 +363,14 @@ export const SongCatalogModal: React.FC<Props> = ({
                 onClose()
                 onOpenUploadModal()
               }}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition flex items-center gap-1.5 cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
               Subir Nueva Partitura
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
             >
               Cerrar
             </button>

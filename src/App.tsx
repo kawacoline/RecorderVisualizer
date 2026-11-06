@@ -14,9 +14,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ListMusic,
+  Trash2,
 } from 'lucide-react'
 import type { AspectRatio, SongMetadata } from './types/music'
 import { PRESET_SONGS } from './lib/songsLibrary'
+import {
+  loadSongsFromDb,
+  saveSongToDb,
+  deleteSongFromDb,
+  restorePresetSongsInDb,
+} from './lib/songDatabase'
 import { RecorderRhythmGame } from './components/RecorderRhythmGame'
 import { RecorderVisualizerCanvas } from './components/RecorderVisualizerCanvas'
 import { UploadPartitureModal } from './components/UploadPartitureModal'
@@ -27,7 +34,7 @@ import { videoRecorder } from './lib/videoRecorder'
 
 export function App() {
   const [songs, setSongs] = useState<SongMetadata[]>(PRESET_SONGS)
-  const [currentSong, setCurrentSong] = useState<SongMetadata>(PRESET_SONGS[0])
+  const [currentSong, setCurrentSong] = useState<SongMetadata | null>(PRESET_SONGS[0])
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [playbackRate, setPlaybackRate] = useState<number>(1.0) // 1.0x standard tempo default
@@ -37,6 +44,7 @@ export function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isFingeringGuideOpen, setIsFingeringGuideOpen] = useState<boolean>(false)
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState<boolean>(false)
+  const [songToDelete, setSongToDelete] = useState<SongMetadata | null>(null)
   const [selectedRibbonCategory, setSelectedRibbonCategory] = useState<string>('all')
   const [volume, setVolume] = useState<number>(0.8)
   const [isMuted, setIsMuted] = useState<boolean>(false)
@@ -53,8 +61,30 @@ export function App() {
   const playedNoteIdsRef = useRef<Set<string>>(new Set())
   const lastFrameTimeRef = useRef<number | null>(null)
 
+  // Load songs from IndexedDB on startup
+  useEffect(() => {
+    let isMounted = true
+    loadSongsFromDb().then((loaded) => {
+      if (!isMounted) return
+      if (loaded.length > 0) {
+        setSongs(loaded)
+        setCurrentSong((prev) => {
+          if (!prev) return loaded[0]
+          const match = loaded.find((s) => s.id === prev.id)
+          return match || loaded[0]
+        })
+      } else {
+        setSongs([])
+        setCurrentSong(null)
+      }
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // Calculate song duration
-  const lastNote = currentSong.notes[currentSong.notes.length - 1]
+  const lastNote = currentSong?.notes ? currentSong.notes[currentSong.notes.length - 1] : undefined
   const songDuration = lastNote ? lastNote.startTime + lastNote.duration + 1.0 : 10
 
   // Playback timer loop
@@ -110,7 +140,7 @@ export function App() {
 
   // Trigger audio note synthesis
   useEffect(() => {
-    if (!isPlaying) return
+    if (!isPlaying || !currentSong) return
 
     currentSong.notes.forEach((note) => {
       if (
@@ -126,6 +156,7 @@ export function App() {
   }, [currentTime, isPlaying, currentSong, playbackRate])
 
   const handlePlayPause = () => {
+    if (!currentSong) return
     if (currentTime >= songDuration) {
       setCurrentTime(0)
       playedNoteIdsRef.current.clear()
@@ -139,12 +170,14 @@ export function App() {
     if (backingAudioRef.current) {
       backingAudioRef.current.currentTime = time
     }
-    playedNoteIdsRef.current.forEach((id) => {
-      const note = currentSong.notes.find((n) => n.id === id)
-      if (note && note.startTime > time) {
-        playedNoteIdsRef.current.delete(id)
-      }
-    })
+    if (currentSong) {
+      playedNoteIdsRef.current.forEach((id) => {
+        const note = currentSong.notes.find((n) => n.id === id)
+        if (note && note.startTime > time) {
+          playedNoteIdsRef.current.delete(id)
+        }
+      })
+    }
   }
 
   const handleRestart = () => {
@@ -168,6 +201,7 @@ export function App() {
 
   const handleSongChange = (newSong: SongMetadata) => {
     audioEngine.stopAll()
+    saveSongToDb(newSong)
     setSongs((prev) => {
       if (prev.some((s) => s.id === newSong.id)) {
         return prev.map((s) => (s.id === newSong.id ? newSong : s))
@@ -178,6 +212,31 @@ export function App() {
     setCurrentTime(0)
     playedNoteIdsRef.current.clear()
     setIsPlaying(false)
+  }
+
+  const handleDeleteSong = async (songId: string) => {
+    await deleteSongFromDb(songId)
+    setSongs((prev) => {
+      const updated = prev.filter((s) => s.id !== songId)
+      if (currentSong?.id === songId) {
+        if (updated.length > 0) {
+          handleSongChange(updated[0])
+        } else {
+          setCurrentSong(null)
+          setIsPlaying(false)
+          audioEngine.stopAll()
+        }
+      }
+      return updated
+    })
+  }
+
+  const handleRestoreDefaults = async () => {
+    const restored = await restorePresetSongsInDb()
+    setSongs(restored)
+    if (restored.length > 0) {
+      handleSongChange(restored[0])
+    }
   }
 
   const filteredRibbonSongs = useMemo(() => {
@@ -215,8 +274,8 @@ export function App() {
 
   const handleExportVideo = async () => {
     const canvas = document.getElementById('recorder-visualizer-canvas') as HTMLCanvasElement
-    if (!canvas) {
-      setViewMode('video')
+    if (!canvas || !currentSong) {
+      if (!canvas) setViewMode('video')
       return
     }
 
@@ -234,7 +293,8 @@ export function App() {
       const remaining = songDuration - currentTime
       if (remaining <= 0.2 || !videoRecorder.recording) {
         clearInterval(checkInterval)
-        await videoRecorder.stopRecording(`${currentSong.title.toLowerCase().replace(/\s+/g, '-')}-recorder-tutorial.webm`)
+        const safeTitle = currentSong ? currentSong.title : 'recorder-song'
+        await videoRecorder.stopRecording(`${safeTitle.toLowerCase().replace(/\s+/g, '-')}-recorder-tutorial.webm`)
         setIsExporting(false)
       }
     }, 500)
@@ -392,31 +452,63 @@ export function App() {
                 scrollbarColor: '#06b6d4 #1e293b',
               }}
             >
-              {filteredRibbonSongs.map((song) => {
-                const isSelected = currentSong.id === song.id
-                return (
+              {filteredRibbonSongs.length === 0 ? (
+                <div className="py-2 px-3 text-xs text-slate-400 italic flex items-center gap-2">
+                  <span>No hay canciones en esta categoría.</span>
                   <button
-                    key={song.id}
-                    onClick={() => handleSongChange(song)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
-                      isSelected
-                        ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400'
-                        : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700'
-                    }`}
+                    onClick={handleRestoreDefaults}
+                    className="text-cyan-400 hover:underline font-semibold cursor-pointer"
                   >
-                    <span className="font-semibold">{song.title}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                    Restablecer Predeterminadas
+                  </button>
+                </div>
+              ) : (
+                filteredRibbonSongs.map((song) => {
+                  const isSelected = currentSong?.id === song.id
+                  return (
+                    <div
+                      key={song.id}
+                      className={`group/btn px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 flex-shrink-0 ${
                         isSelected
-                          ? 'bg-black/20 text-slate-950 font-bold'
-                          : 'bg-slate-950 text-cyan-400 border border-slate-800'
+                          ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400'
+                          : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700'
                       }`}
                     >
-                      {song.tempo} BPM
-                    </span>
-                  </button>
-                )
-              })}
+                      <button
+                        onClick={() => handleSongChange(song)}
+                        className="cursor-pointer text-left flex items-center gap-2"
+                      >
+                        <span className="font-semibold">{song.title}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                            isSelected
+                              ? 'bg-black/20 text-slate-950 font-bold'
+                              : 'bg-slate-950 text-cyan-400 border border-slate-800'
+                          }`}
+                        >
+                          {song.tempo} BPM
+                        </span>
+                      </button>
+
+                      {/* Quick Delete Icon */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSongToDelete(song)
+                        }}
+                        className={`p-1 rounded-md transition cursor-pointer ${
+                          isSelected
+                            ? 'hover:bg-black/20 text-slate-950/70 hover:text-red-900'
+                            : 'opacity-40 group-hover/btn:opacity-100 hover:bg-red-500/20 text-slate-500 hover:text-red-400'
+                        }`}
+                        title={`Eliminar "${song.title}" de la base de datos`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
+                })
+              )}
             </div>
 
             {/* Scroll Right Button */}
@@ -432,7 +524,33 @@ export function App() {
         </div>
 
         {/* View Mode Display */}
-        {viewMode === 'rhythm' ? (
+        {!currentSong ? (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center space-y-4 max-w-xl mx-auto my-8 shadow-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto">
+              <Music2 className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Tu biblioteca está vacía</h2>
+            <p className="text-sm text-slate-400">
+              Has eliminado todas las canciones de tu base de datos local. Puedes restaurar las 7 canciones predeterminadas o subir una partitura nueva.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={handleRestoreDefaults}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition flex items-center gap-2 shadow-lg shadow-cyan-500/20 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Restablecer Canciones Predeterminadas
+              </button>
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-2 cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                Subir Partitura
+              </button>
+            </div>
+          </div>
+        ) : viewMode === 'rhythm' ? (
           /* Modern Rhythm Game Learning View */
           <div className="flex flex-col gap-4">
             <RecorderRhythmGame
@@ -490,7 +608,9 @@ export function App() {
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
               <span>{formatTime(currentTime)}</span>
-              <span className="font-semibold text-slate-300">{currentSong.title} ({currentSong.notes.length} notes)</span>
+              <span className="font-semibold text-slate-300">
+                {currentSong ? `${currentSong.title} (${currentSong.notes.length} notes)` : 'Sin canción'}
+              </span>
               <span>{formatTime(songDuration)}</span>
             </div>
             <input
@@ -697,10 +817,56 @@ export function App() {
         isOpen={isCatalogModalOpen}
         onClose={() => setIsCatalogModalOpen(false)}
         songs={songs}
-        currentSongId={currentSong.id}
+        currentSongId={currentSong?.id || ''}
         onSelectSong={handleSongChange}
+        onDeleteSong={handleDeleteSong}
+        onRestoreDefaults={handleRestoreDefaults}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
       />
+
+      {/* Delete Confirmation Dialog for Ribbon trigger */}
+      {songToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="p-2.5 rounded-2xl bg-red-500/10 border border-red-500/20">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Eliminar canción de la BD?</h3>
+                <p className="text-xs text-slate-400">Esta acción removerá la canción de tu biblioteca local.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <p className="text-sm font-bold text-white">{songToDelete.title}</p>
+              <p className="text-xs text-slate-400">{songToDelete.subtitle} • {songToDelete.artist}</p>
+              <p className="text-[11px] text-slate-500 font-mono mt-1">
+                {songToDelete.notes.length} notas • {songToDelete.tempo} BPM • {songToDelete.category}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setSongToDelete(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  handleDeleteSong(songToDelete.id)
+                  setSongToDelete(null)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition flex items-center gap-1.5 shadow-lg shadow-red-600/30 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sí, Eliminar de la BD</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Optional Backing Track Audio Element */}
       {backingAudioUrl && (
