@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Music2,
   Gamepad2,
@@ -10,6 +10,10 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  FileAudio,
+  ChevronLeft,
+  ChevronRight,
+  ListMusic,
 } from 'lucide-react'
 import type { AspectRatio, SongMetadata } from './types/music'
 import { PRESET_SONGS } from './lib/songsLibrary'
@@ -17,10 +21,12 @@ import { RecorderRhythmGame } from './components/RecorderRhythmGame'
 import { RecorderVisualizerCanvas } from './components/RecorderVisualizerCanvas'
 import { UploadPartitureModal } from './components/UploadPartitureModal'
 import { FingeringGuideModal } from './components/FingeringGuideModal'
+import { SongCatalogModal } from './components/SongCatalogModal'
 import { audioEngine } from './lib/audioEngine'
 import { videoRecorder } from './lib/videoRecorder'
 
 export function App() {
+  const [songs, setSongs] = useState<SongMetadata[]>(PRESET_SONGS)
   const [currentSong, setCurrentSong] = useState<SongMetadata>(PRESET_SONGS[0])
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
@@ -30,9 +36,19 @@ export function App() {
   const [fingeringSystem, setFingeringSystem] = useState<'baroque' | 'german'>('baroque')
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isFingeringGuideOpen, setIsFingeringGuideOpen] = useState<boolean>(false)
+  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState<boolean>(false)
+  const [selectedRibbonCategory, setSelectedRibbonCategory] = useState<string>('all')
   const [volume, setVolume] = useState<number>(0.8)
   const [isMuted, setIsMuted] = useState<boolean>(false)
   const [isExporting, setIsExporting] = useState<boolean>(false)
+
+  // A-B Looper & Backing Audio
+  const [loopA, setLoopA] = useState<number | null>(null)
+  const [loopB, setLoopB] = useState<number | null>(null)
+  const [backingAudioUrl, setBackingAudioUrl] = useState<string | null>(null)
+  const backingAudioRef = useRef<HTMLAudioElement | null>(null)
+  const backingFileInputRef = useRef<HTMLInputElement | null>(null)
+  const songScrollRef = useRef<HTMLDivElement | null>(null)
 
   const playedNoteIdsRef = useRef<Set<string>>(new Set())
   const lastFrameTimeRef = useRef<number | null>(null)
@@ -50,8 +66,21 @@ export function App() {
         const deltaSeconds = ((now - lastFrameTimeRef.current) / 1000) * playbackRate
         setCurrentTime((prev) => {
           const next = prev + deltaSeconds
+
+          // A-B Loop boundary check
+          if (loopB !== null && next >= loopB) {
+            const loopTarget = loopA !== null ? loopA : 0
+            if (backingAudioRef.current) {
+              backingAudioRef.current.currentTime = loopTarget
+            }
+            return loopTarget
+          }
+
           if (next >= songDuration) {
             setIsPlaying(false)
+            if (backingAudioRef.current) {
+              backingAudioRef.current.pause()
+            }
             return songDuration
           }
           return next
@@ -64,12 +93,20 @@ export function App() {
     if (isPlaying) {
       lastFrameTimeRef.current = performance.now()
       animId = requestAnimationFrame(tick)
+      if (backingAudioRef.current) {
+        backingAudioRef.current.currentTime = currentTime
+        backingAudioRef.current.playbackRate = playbackRate
+        backingAudioRef.current.play().catch(() => {})
+      }
     } else {
       lastFrameTimeRef.current = null
+      if (backingAudioRef.current) {
+        backingAudioRef.current.pause()
+      }
     }
 
     return () => cancelAnimationFrame(animId)
-  }, [isPlaying, playbackRate, songDuration])
+  }, [isPlaying, playbackRate, songDuration, loopA, loopB, currentTime])
 
   // Trigger audio note synthesis
   useEffect(() => {
@@ -99,6 +136,9 @@ export function App() {
   const handleSeek = (time: number) => {
     setCurrentTime(time)
     audioEngine.stopAll()
+    if (backingAudioRef.current) {
+      backingAudioRef.current.currentTime = time
+    }
     playedNoteIdsRef.current.forEach((id) => {
       const note = currentSong.notes.find((n) => n.id === id)
       if (note && note.startTime > time) {
@@ -109,17 +149,53 @@ export function App() {
 
   const handleRestart = () => {
     audioEngine.stopAll()
+    const restartTime = loopA !== null ? loopA : 0
+    setCurrentTime(restartTime)
+    if (backingAudioRef.current) {
+      backingAudioRef.current.currentTime = restartTime
+    }
+    playedNoteIdsRef.current.clear()
+    setIsPlaying(false)
+  }
+
+  const handleBackingAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setBackingAudioUrl(url)
+    }
+  }
+
+  const handleSongChange = (newSong: SongMetadata) => {
+    audioEngine.stopAll()
+    setSongs((prev) => {
+      if (prev.some((s) => s.id === newSong.id)) {
+        return prev.map((s) => (s.id === newSong.id ? newSong : s))
+      }
+      return [newSong, ...prev]
+    })
+    setCurrentSong(newSong)
     setCurrentTime(0)
     playedNoteIdsRef.current.clear()
     setIsPlaying(false)
   }
 
-  const handleSongChange = (newSong: SongMetadata) => {
-    audioEngine.stopAll()
-    setCurrentSong(newSong)
-    setCurrentTime(0)
-    playedNoteIdsRef.current.clear()
-    setIsPlaying(false)
+  const filteredRibbonSongs = useMemo(() => {
+    if (selectedRibbonCategory === 'all') return songs
+    return songs.filter((s) => s.category === selectedRibbonCategory)
+  }, [songs, selectedRibbonCategory])
+
+  const scrollSongs = (direction: 'left' | 'right') => {
+    if (songScrollRef.current) {
+      const offset = direction === 'left' ? -280 : 280
+      songScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' })
+    }
+  }
+
+  const handleSongRibbonWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY !== 0 && songScrollRef.current) {
+      songScrollRef.current.scrollLeft += e.deltaY
+    }
   }
 
   const handleToggleMute = () => {
@@ -251,27 +327,108 @@ export function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col gap-6">
-        {/* Preset Songs Picker Ribbon */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex-shrink-0 mr-1">
-            Songs:
-          </span>
-          {PRESET_SONGS.map((song) => (
-            <button
-              key={song.id}
-              onClick={() => handleSongChange(song)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
-                currentSong.id === song.id
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
-              }`}
-            >
-              <span>{song.title}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded ${currentSong.id === song.id ? 'bg-black/20 text-slate-950 font-mono' : 'text-slate-500 font-mono'}`}>
-                {song.tempo} BPM
+        {/* Responsive Song Selector Console */}
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 backdrop-blur-md space-y-2.5 shadow-xl">
+          {/* Top Row: Categories & All Songs Modal Button */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                <Music2 className="w-3.5 h-3.5 text-cyan-400" />
+                Canciones:
               </span>
+              {[
+                { key: 'all', label: 'Todas' },
+                { key: 'Gaming & Pop', label: '🎮 EBF & Juegos' },
+                { key: 'Touhou & Anime', label: '🌸 Bad Apple' },
+                { key: 'Folk & Sea Shanty', label: '⚓ Folk & Marinera' },
+                { key: 'Classical', label: '🎻 Clásica' },
+              ].map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setSelectedRibbonCategory(cat.key)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                    selectedRibbonCategory === cat.key
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border border-transparent'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Catalog & Upload shortcut */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCatalogModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Abrir catálogo con buscador y todas las canciones"
+              >
+                <ListMusic className="w-4 h-4 text-cyan-400" />
+                <span>Ver Catálogo Completo ({songs.length})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Carousel Row with Scroll Buttons */}
+          <div className="relative flex items-center gap-2">
+            {/* Scroll Left Button */}
+            <button
+              onClick={() => scrollSongs('left')}
+              className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white transition flex-shrink-0 border border-slate-700 shadow-md cursor-pointer"
+              title="Desplazar a la izquierda"
+              aria-label="Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          ))}
+
+            {/* Scrollable Song List Container */}
+            <div
+              ref={songScrollRef}
+              onWheel={handleSongRibbonWheel}
+              className="flex-1 flex items-center gap-2.5 overflow-x-auto py-1.5 px-1 scroll-smooth"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#06b6d4 #1e293b',
+              }}
+            >
+              {filteredRibbonSongs.map((song) => {
+                const isSelected = currentSong.id === song.id
+                return (
+                  <button
+                    key={song.id}
+                    onClick={() => handleSongChange(song)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 flex-shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400'
+                        : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="font-semibold">{song.title}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                        isSelected
+                          ? 'bg-black/20 text-slate-950 font-bold'
+                          : 'bg-slate-950 text-cyan-400 border border-slate-800'
+                      }`}
+                    >
+                      {song.tempo} BPM
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Scroll Right Button */}
+            <button
+              onClick={() => scrollSongs('right')}
+              className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white transition flex-shrink-0 border border-slate-700 shadow-md cursor-pointer"
+              title="Desplazar a la derecha (ver más canciones)"
+              aria-label="Siguiente"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* View Mode Display */}
@@ -399,6 +556,63 @@ export function App() {
               </div>
             </div>
 
+            {/* A-B Loop Practice & Audio Backing */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setLoopA(currentTime)}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    loopA !== null ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Marcar inicio de bucle A"
+                >
+                  Loop A {loopA !== null ? `(${formatTime(loopA)})` : ''}
+                </button>
+                <button
+                  onClick={() => setLoopB(currentTime)}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    loopB !== null ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Marcar fin de bucle B"
+                >
+                  Loop B {loopB !== null ? `(${formatTime(loopB)})` : ''}
+                </button>
+                {(loopA !== null || loopB !== null) && (
+                  <button
+                    onClick={() => {
+                      setLoopA(null)
+                      setLoopB(null)
+                    }}
+                    className="px-2 py-1 text-slate-500 hover:text-red-400 transition"
+                    title="Borrar bucle de práctica"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Backing Track audio upload */}
+              <input
+                type="file"
+                ref={backingFileInputRef}
+                accept="audio/*"
+                onChange={handleBackingAudioUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => backingFileInputRef.current?.click()}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                  backingAudioUrl
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border-slate-800'
+                }`}
+                title="Cargar pista de audio MP3 de acompañamiento"
+              >
+                <FileAudio className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{backingAudioUrl ? 'Pista MP3 Activa' : '+ Audio MP3'}</span>
+              </button>
+            </div>
+
             {/* Fingering system & Audio */}
             <div className="flex items-center gap-3">
               {/* Fingering System Toggle */}
@@ -477,6 +691,21 @@ export function App() {
         onClose={() => setIsFingeringGuideOpen(false)}
         system={fingeringSystem}
       />
+
+      {/* Song Catalog Explorer Modal */}
+      <SongCatalogModal
+        isOpen={isCatalogModalOpen}
+        onClose={() => setIsCatalogModalOpen(false)}
+        songs={songs}
+        currentSongId={currentSong.id}
+        onSelectSong={handleSongChange}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+      />
+
+      {/* Optional Backing Track Audio Element */}
+      {backingAudioUrl && (
+        <audio ref={backingAudioRef} src={backingAudioUrl} />
+      )}
     </div>
   )
 }
