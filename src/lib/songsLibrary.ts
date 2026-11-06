@@ -258,7 +258,51 @@ const BREEZE_SEQUENCE: [string, number][] = [
   ['D5', 4.0], ['A4', 4.0], ['D5', 4.0],
 ]
 
+// -------------------------------------------------------------
+// 7. JOURNEY TO THE EAST (Epic Battle Fantasy 3 - Phyrnna)
+// Oriental Flute Arrangement in A minor (156 BPM)
+// -------------------------------------------------------------
+const JOURNEY_EAST_BPM = 156
+
+const JOURNEY_EAST_SEQUENCE: [string, number][] = [
+  // --- Intro Bamboo Flute Riff ---
+  ['A4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 1.0], ['G5', 0.5], ['E5', 0.5], ['D5', 1.0],
+  ['C5', 0.5], ['D5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 0.5], ['G4', 0.5], ['A4', 1.5], ['REST', 0.5],
+
+  ['A4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 1.0], ['A5', 0.5], ['G5', 0.5], ['E5', 1.0],
+  ['D5', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 0.5], ['A4', 2.0], ['REST', 0.5],
+
+  // --- Main Oriental Lead Melody ---
+  ['E5', 0.5], ['E5', 0.5], ['G5', 0.5], ['A5', 1.0], ['G5', 0.5], ['E5', 0.5], ['D5', 1.0],
+  ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 1.0], ['C5', 0.5], ['D5', 1.0], ['E5', 1.5], ['REST', 0.5],
+
+  ['E5', 0.5], ['G5', 0.5], ['A5', 0.5], ['B5', 0.5], ['A5', 0.5], ['G5', 0.5], ['E5', 1.0],
+  ['D5', 0.5], ['E5', 0.5], ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 2.0], ['REST', 0.5],
+
+  // --- High Bamboo Flute Variation ---
+  ['A5', 0.5], ['A5', 0.5], ['G5', 0.5], ['E5', 1.0], ['D5', 0.5], ['C5', 0.5], ['D5', 1.0],
+  ['E5', 0.5], ['G5', 0.5], ['A5', 1.0], ['B5', 0.5], ['A5', 0.5], ['G5', 1.0], ['E5', 1.0],
+
+  ['A5', 0.5], ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 1.0],
+  ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 1.0], ['G4', 0.5], ['A4', 2.5],
+]
+
 export const PRESET_SONGS: SongMetadata[] = [
+  {
+    id: 'journey-to-the-east',
+    title: 'Journey to the East',
+    subtitle: 'Epic Battle Fantasy 3 • Phyrnna (Oriental Battle)',
+    artist: 'Phyrnna (HalcyonicFalconX)',
+    category: 'Gaming & Pop',
+    tempo: JOURNEY_EAST_BPM,
+    bannerCta: 'Epic Battle Fantasy 3 Soundtrack',
+    speedLabel: '156 BPM',
+    bottomTitle: 'JOURNEY TO THE EAST',
+    bottomSubtitle: 'Recorder Tutorial',
+    silhouettePreset: 'greentea',
+    fingeringSystem: 'baroque',
+    notes: createNotesFromSequence(JOURNEY_EAST_SEQUENCE, JOURNEY_EAST_BPM),
+  },
   {
     id: 'breeze-from-home',
     title: 'A Breeze From Home',

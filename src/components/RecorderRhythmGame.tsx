@@ -41,8 +41,63 @@ export const RecorderRhythmGame: React.FC<Props> = ({
   const [flowDirection, setFlowDirection] = useState<'horizontal' | 'vertical'>('horizontal')
   const [combo, setCombo] = useState<number>(0)
   const [lastJudgement, setLastJudgement] = useState<string>('READY')
+  const [userHoles, setUserHoles] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0])
   const lastNoteIdRef = useRef<string | null>(null)
   const ripplesRef = useRef<{ lane: number; progress: number; color: string }[]>([])
+
+  // Keyboard input listeners for practicing fingerings
+  useEffect(() => {
+    const keyMap: Record<string, number> = {
+      ' ': 0,
+      q: 0,
+      Q: 0,
+      a: 1,
+      A: 1,
+      s: 2,
+      S: 2,
+      d: 3,
+      D: 3,
+      j: 4,
+      J: 4,
+      k: 5,
+      K: 5,
+      l: 6,
+      L: 6,
+      ';': 7,
+      p: 7,
+      P: 7,
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const lane = keyMap[e.key]
+      if (lane !== undefined) {
+        setUserHoles((prev) => {
+          const next = [...prev]
+          next[lane] = 1
+          return next
+        })
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const lane = keyMap[e.key]
+      if (lane !== undefined) {
+        setUserHoles((prev) => {
+          const next = [...prev]
+          next[lane] = 0
+          return next
+        })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   // Find currently active note
   const currentNote = song.notes.find(
@@ -153,22 +208,23 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         for (let i = 0; i < numLanes; i++) {
           const centerY = i * laneHeight + laneHeight / 2
           const isActive = currentNote ? currentNote.holes[i] > 0 : false
+          const isUserPressing = userHoles[i] > 0
           const laneMeta = FINGER_LANES[i]
 
           ctx.save()
-          if (isActive) {
+          if (isActive || isUserPressing) {
             ctx.fillStyle = laneMeta.color
             ctx.shadowColor = laneMeta.color
-            ctx.shadowBlur = 16
+            ctx.shadowBlur = isUserPressing ? 22 : 16
           } else {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
           }
           ctx.beginPath()
-          ctx.arc(hitX, centerY, 14, 0, Math.PI * 2)
+          ctx.arc(hitX, centerY, isUserPressing ? 16 : 14, 0, Math.PI * 2)
           ctx.fill()
 
-          ctx.strokeStyle = '#ffffff'
-          ctx.lineWidth = 2
+          ctx.strokeStyle = isUserPressing ? '#ffffff' : 'rgba(255, 255, 255, 0.5)'
+          ctx.lineWidth = isUserPressing ? 3.5 : 2
           ctx.stroke()
           ctx.restore()
         }
@@ -279,21 +335,22 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         for (let i = 0; i < numLanes; i++) {
           const centerX = i * laneWidth + laneWidth / 2
           const isActive = currentNote ? currentNote.holes[i] > 0 : false
+          const isUserPressing = userHoles[i] > 0
           const laneMeta = FINGER_LANES[i]
 
           ctx.save()
-          if (isActive) {
+          if (isActive || isUserPressing) {
             ctx.fillStyle = laneMeta.color
             ctx.shadowColor = laneMeta.color
-            ctx.shadowBlur = 16
+            ctx.shadowBlur = isUserPressing ? 22 : 16
           } else {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
           }
           ctx.beginPath()
-          ctx.arc(centerX, hitY, 14, 0, Math.PI * 2)
+          ctx.arc(centerX, hitY, isUserPressing ? 16 : 14, 0, Math.PI * 2)
           ctx.fill()
-          ctx.strokeStyle = '#ffffff'
-          ctx.lineWidth = 2
+          ctx.strokeStyle = isUserPressing ? '#ffffff' : 'rgba(255, 255, 255, 0.5)'
+          ctx.lineWidth = isUserPressing ? 3.5 : 2
           ctx.stroke()
           ctx.restore()
         }
