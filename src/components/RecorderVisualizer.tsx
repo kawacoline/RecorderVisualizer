@@ -218,7 +218,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
           // Shown on Hole 1, or on Hole 0 if Hole 1 is open
           const isPrimaryLabelLane = hIdx === 1 || (note.holes[1] === 0 && hIdx === 0)
           if (showLabelsRef.current && isPrimaryLabelLane && blockWidth > 32) {
-            ctx.fillStyle = '#000000'
+            const { textContrast } = getHoleColors(hIdx, skin)
+            ctx.fillStyle = textContrast
             ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
@@ -385,7 +386,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
           }
 
           // Number label inside hole: '0' for Pulgar, '1' for 1, '2' for 2, etc.
-          ctx.fillStyle = isClosed ? '#000000' : '#a89a7d'
+          const { textContrast: holeTextContrast } = getHoleColors(i, skin)
+          ctx.fillStyle = isClosed ? holeTextContrast : '#a89a7d'
           ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
@@ -401,8 +403,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
       if (firstNote && firstNote.startTime > time) {
         const remainingTime = Math.max(0, firstNote.startTime - time).toFixed(1)
         ctx.save()
-        ctx.fillStyle = skin.primaryColor
-        ctx.shadowColor = skin.glowPrimary
+        ctx.fillStyle = skin.cyanColor
+        ctx.shadowColor = skin.glowCyan
         ctx.shadowBlur = 10
         ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif'
         ctx.textAlign = 'center'
@@ -445,9 +447,25 @@ export const RecorderVisualizer: React.FC<Props> = ({
             </div>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
               {currentNote
-                ? `Digitación: [Pulgar 0: ${currentNote.holes[0] === 0.5 ? '½' : currentNote.holes[0]} | ${currentNote.holes.slice(1, 4).join('')} | ${currentNote.holes.slice(4).join('')}]`
+                ? `Digitación: [Pulgar: ${currentNote.holes[0] === 0.5 ? '½' : currentNote.holes[0]} | ${currentNote.holes.slice(1, 4).join('')} | ${currentNote.holes.slice(4).join('')}]`
                 : 'Presiona Play para iniciar la visualización'}
             </p>
+            <div className="flex items-center gap-2 text-[10px] font-mono mt-1 text-slate-400 flex-wrap">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50"></span>
+                Pulgar (0) & Dedo 7: Rojo
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block shadow-sm shadow-cyan-400/50"></span>
+                Dedos 1, 2, 3: Cian
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-white inline-block shadow-sm shadow-white/50"></span>
+                Dedos 4, 5, 6: Blanco
+              </span>
+            </div>
           </div>
         </div>
 
