@@ -229,7 +229,51 @@ const ODE_TO_JOY_SEQUENCE: [string, number][] = [
   ['A4', 1.5], ['G4', 0.5], ['G4', 3.0],
 ]
 
+// -------------------------------------------------------------
+// 6. A BREEZE FROM HOME (Epic Battle Fantasy 5 - Phyrnna)
+// Complete Soprano Recorder Arrangement in D Major (92 BPM)
+// -------------------------------------------------------------
+const BREEZE_BPM = 92
+
+const BREEZE_SEQUENCE: [string, number][] = [
+  // Intro theme
+  ['D5', 2.0], ['A4', 2.0], ['F#4', 1.0], ['G4', 1.0], ['A4', 2.0],
+  ['B4', 2.0], ['C#5', 2.0], ['D5', 4.0],
+  ['E5', 2.0], ['C#5', 2.0], ['A4', 1.0], ['B4', 1.0], ['C#5', 2.0],
+  ['D5', 2.0], ['E5', 2.0], ['F#5', 4.0],
+
+  // Theme A
+  ['F#5', 2.0], ['E5', 1.0], ['D5', 1.0], ['E5', 2.0], ['A4', 2.0],
+  ['F#5', 2.0], ['G5', 1.0], ['A5', 1.0], ['B5', 4.0],
+  ['A5', 2.0], ['G5', 1.0], ['F#5', 1.0], ['E5', 2.0], ['D5', 2.0],
+  ['C#5', 2.0], ['D5', 1.0], ['E5', 1.0], ['D5', 4.0],
+
+  // Measure 81 (From the user's MuseScore score!)
+  ['A5', 2.5], ['B5', 0.5], ['A5', 0.5], ['F#5', 0.5], ['E5', 4.0],
+  ['D5', 2.0], ['E5', 2.0], ['F#5', 4.0],
+  ['A5', 2.5], ['B5', 0.5], ['A5', 0.5], ['F#5', 0.5], ['E5', 4.0],
+  ['D5', 2.0], ['F#5', 2.0], ['E5', 4.0],
+
+  // Resolution
+  ['D5', 4.0], ['A4', 4.0], ['D5', 4.0],
+]
+
 export const PRESET_SONGS: SongMetadata[] = [
+  {
+    id: 'breeze-from-home',
+    title: 'A Breeze From Home',
+    subtitle: 'Epic Battle Fantasy 5 • Phyrnna (Score 7833518)',
+    artist: 'Phyrnna / Arr. poseidis',
+    category: 'Gaming & Pop',
+    tempo: BREEZE_BPM,
+    bannerCta: 'Epic Battle Fantasy 5 Soundtrack',
+    speedLabel: '92 BPM',
+    bottomTitle: 'A BREEZE FROM HOME',
+    bottomSubtitle: 'Recorder Tutorial',
+    silhouettePreset: 'greentea',
+    fingeringSystem: 'baroque',
+    notes: createNotesFromSequence(BREEZE_SEQUENCE, BREEZE_BPM),
+  },
   {
     id: 'bad-apple',
     title: 'Bad Apple!!',
