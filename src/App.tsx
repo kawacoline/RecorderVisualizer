@@ -1,10 +1,9 @@
 /**
- * Recorder Studio - Modern Rhythm Game & Flute Fingering Visualizer
+ * Recorder Studio - Modern Soprano Flute Visualizer & Rhythm Game
  */
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Music2,
-  Gamepad2,
   Video,
   BookOpen,
   Upload,
@@ -19,7 +18,7 @@ import {
   ListMusic,
   Trash2,
 } from 'lucide-react'
-import type { AspectRatio, SongMetadata } from './types/music'
+import type { SongMetadata } from './types/music'
 import { PRESET_SONGS } from './lib/songsLibrary'
 import {
   loadSongsFromDb,
@@ -27,8 +26,7 @@ import {
   deleteSongFromDb,
   restorePresetSongsInDb,
 } from './lib/songDatabase'
-import { RecorderRhythmGame } from './components/RecorderRhythmGame'
-import { RecorderVisualizerCanvas } from './components/RecorderVisualizerCanvas'
+import { RecorderVisualizer } from './components/RecorderVisualizer'
 import { UploadPartitureModal } from './components/UploadPartitureModal'
 import { FingeringGuideModal } from './components/FingeringGuideModal'
 import { SongCatalogModal } from './components/SongCatalogModal'
@@ -41,8 +39,6 @@ export function App() {
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [playbackRate, setPlaybackRate] = useState<number>(1.0) // 1.0x standard tempo default
-  const [viewMode, setViewMode] = useState<'rhythm' | 'video'>('rhythm')
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16')
   const [fingeringSystem, setFingeringSystem] = useState<'baroque' | 'german'>('baroque')
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isFingeringGuideOpen, setIsFingeringGuideOpen] = useState<boolean>(false)
@@ -293,7 +289,6 @@ export function App() {
   const handleExportVideo = async () => {
     const canvas = document.getElementById('recorder-visualizer-canvas') as HTMLCanvasElement
     if (!canvas || !currentSong) {
-      if (!canvas) setViewMode('video')
       return
     }
 
@@ -338,37 +333,11 @@ export function App() {
             <h1 className="text-base font-black tracking-tight text-white flex items-center gap-2">
               RECORDER STUDIO
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                Rhythm Game
+                Visualizer
               </span>
             </h1>
             <p className="text-xs text-slate-400">Interactive Partiture & Finger Training</p>
           </div>
-        </div>
-
-        {/* View Mode Switcher */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setViewMode('rhythm')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
-              viewMode === 'rhythm'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Gamepad2 className="w-4 h-4" />
-            Rhythm Game Mode
-          </button>
-          <button
-            onClick={() => setViewMode('video')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
-              viewMode === 'video'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Video className="w-4 h-4" />
-            Video Export (9:16)
-          </button>
         </div>
 
         {/* Actions */}
@@ -568,56 +537,16 @@ export function App() {
               </button>
             </div>
           </div>
-        ) : viewMode === 'rhythm' ? (
-          /* Modern Rhythm Game Learning View */
-          <div className="flex flex-col gap-4">
-            <RecorderRhythmGame
-              song={currentSong}
-              currentTime={currentTime}
-              isPlaying={isPlaying}
-              playbackRate={playbackRate}
-              fingeringSystem={fingeringSystem}
-              onSeek={handleSeek}
-            />
-          </div>
         ) : (
-          /* Video Generator / Canvas View */
-          <div className="flex flex-col items-center justify-center py-4 space-y-3">
-            <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-              <span className="text-xs text-slate-400 font-semibold mr-1">Video Aspect:</span>
-              <button
-                onClick={() => setAspectRatio('9:16')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  aspectRatio === '9:16'
-                    ? 'bg-cyan-500 text-slate-950'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                9:16 Shorts/TikTok
-              </button>
-              <button
-                onClick={() => setAspectRatio('16:9')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                  aspectRatio === '16:9'
-                    ? 'bg-cyan-500 text-slate-950'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                16:9 Landscape
-              </button>
-            </div>
-
-            <div className={`w-full ${aspectRatio === '16:9' ? 'max-w-4xl' : 'max-w-md'} shadow-2xl`}>
-              <RecorderVisualizerCanvas
-                song={currentSong}
-                currentTime={currentTime}
-                isPlaying={isPlaying}
-                playbackRate={playbackRate}
-                aspectRatio={aspectRatio}
-                fingeringSystem={fingeringSystem}
-              />
-            </div>
-          </div>
+          /* Unified Soprano Recorder Visualizer */
+          <RecorderVisualizer
+            song={currentSong}
+            currentTime={currentTime}
+            isPlaying={isPlaying}
+            playbackRate={playbackRate}
+            fingeringSystem={fingeringSystem}
+            onSeek={handleSeek}
+          />
         )}
 
         {/* Bottom Playback & Rhythm Control Console */}
@@ -800,16 +729,15 @@ export function App() {
               </div>
 
               {/* Video Export button */}
-              {viewMode === 'video' && (
-                <button
-                  onClick={handleExportVideo}
-                  disabled={isExporting}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
-                >
-                  <Video className="w-4 h-4" />
-                  {isExporting ? 'Exporting...' : 'Export MP4/WebM'}
-                </button>
-              )}
+              <button
+                onClick={handleExportVideo}
+                disabled={isExporting}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                title="Grabar y descargar video WebM del visualizador"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>{isExporting ? 'Grabando...' : 'Exportar Video'}</span>
+              </button>
             </div>
           </div>
         </div>
