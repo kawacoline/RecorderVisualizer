@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { Gauge, Palette } from 'lucide-react'
 import type { Fingering, NoteEvent, SongMetadata } from '../types/music'
 import { getFingering } from '../lib/recorderFingering'
-import { VISUALIZER_SKINS } from '../types/skins'
+import { VISUALIZER_SKINS, getHoleColors } from '../types/skins'
 
 interface Props {
   song: SongMetadata
@@ -22,17 +22,6 @@ interface Ripple {
   color: string
 }
 
-const FINGER_KEYS: { id: number; key: string; label: string; name: string }[] = [
-  { id: 0, key: 'Space', label: 'T', name: 'Pulgar (Atrás)' },
-  { id: 1, key: 'A', label: '1', name: 'Índice Izq' },
-  { id: 2, key: 'S', label: '2', name: 'Medio Izq' },
-  { id: 3, key: 'D', label: '3', name: 'Anular Izq' },
-  { id: 4, key: 'J', label: '4', name: 'Índice Der' },
-  { id: 5, key: 'K', label: '5', name: 'Medio Der' },
-  { id: 6, key: 'L', label: '6', name: 'Anular Der' },
-  { id: 7, key: ';', label: '7', name: 'Meñique Der' },
-]
-
 export const RecorderVisualizer: React.FC<Props> = ({
   song,
   currentTime,
@@ -46,10 +35,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
 
   // Customization states
   const [selectedSkinId, setSelectedSkinId] = useState<string>('cyan-capsule')
-  const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.5) // 1.0x to 3.0x
+  const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.5) // 1.0x to 2.5x
   const [showPitchLabels, setShowPitchLabels] = useState<boolean>(true)
-  const [userHoles, setUserHoles] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0])
-  const userHolesRef = useRef<number[]>([0, 0, 0, 0, 0, 0, 0, 0])
 
   const activeSkin = useMemo(() => {
     return VISUALIZER_SKINS.find((s) => s.id === selectedSkinId) || VISUALIZER_SKINS[0]
@@ -90,54 +77,6 @@ export const RecorderVisualizer: React.FC<Props> = ({
     return getFingering(currentNote.midi, fingeringSystem)
   }, [currentNote, fingeringSystem])
 
-  // Keyboard input listeners for physical finger practice
-  useEffect(() => {
-    const keyMap: Record<string, number> = {
-      ' ': 0,
-      q: 0,
-      Q: 0,
-      a: 1,
-      A: 1,
-      s: 2,
-      S: 2,
-      d: 3,
-      D: 3,
-      j: 4,
-      J: 4,
-      k: 5,
-      K: 5,
-      l: 6,
-      L: 6,
-      ';': 7,
-      p: 7,
-      P: 7,
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      const lane = keyMap[e.key]
-      if (lane !== undefined) {
-        userHolesRef.current[lane] = 1
-        setUserHoles([...userHolesRef.current])
-      }
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const lane = keyMap[e.key]
-      if (lane !== undefined) {
-        userHolesRef.current[lane] = 0
-        setUserHoles([...userHolesRef.current])
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [])
-
   // 60FPS High-Performance Visualizer Canvas Render Loop
   useEffect(() => {
     const canvas = canvasRef.current
@@ -174,23 +113,30 @@ export const RecorderVisualizer: React.FC<Props> = ({
       // Compute geometry
       // The recorder is positioned at ~28% of the width, giving 72% runway for incoming notes
       const fluteX = Math.max(160, Math.min(340, width * 0.28))
-      const fluteWidth = 42
-      const topPadding = 45
+      const fluteWidth = 44
+      const topPadding = 50
       const bottomPadding = 40
       const usableHeight = height - topPadding - bottomPadding
-      const holeSpacing = usableHeight / 8.2
+      const holeStep = usableHeight / 8.5
 
-      // Exact Y coordinates for each of the 8 holes
-      // Hole 0 (Thumb) is offset on the left to avoid any visual collision with Hole 1
+      // All 8 holes (0 to 7) centered along fluteX
+      // Hole 0: Pulgar (Cyan)
+      // Hole 1: Dedo 1 (Cyan)
+      // Hole 2: Dedo 2 (Cyan)
+      // Hole 3: Dedo 3 (Blanco)
+      // Hole 4: Dedo 4 (Blanco)
+      // Hole 5: Dedo 5 (Blanco)
+      // Hole 6: Dedo 6 (Blanco)
+      // Hole 7: Dedo 7 (Blanco)
       const holeYPositions = [
-        topPadding + holeSpacing * 0.85, // Thumb (0)
-        topPadding + holeSpacing * 1.15, // Hole 1 (Left index)
-        topPadding + holeSpacing * 2.15, // Hole 2 (Left middle)
-        topPadding + holeSpacing * 3.15, // Hole 3 (Left ring)
-        topPadding + holeSpacing * 4.35, // Hole 4 (Right index)
-        topPadding + holeSpacing * 5.35, // Hole 5 (Right middle)
-        topPadding + holeSpacing * 6.45, // Hole 6 (Right ring - double)
-        topPadding + holeSpacing * 7.55, // Hole 7 (Right pinky - double)
+        topPadding + holeStep * 0.7, // Hole 0 (Pulgar)
+        topPadding + holeStep * 1.7, // Hole 1 (Dedo 1)
+        topPadding + holeStep * 2.7, // Hole 2 (Dedo 2)
+        topPadding + holeStep * 3.7, // Hole 3 (Dedo 3)
+        topPadding + holeStep * 4.9, // Hole 4 (Dedo 4) - natural hand separation
+        topPadding + holeStep * 5.9, // Hole 5 (Dedo 5)
+        topPadding + holeStep * 6.9, // Hole 6 (Dedo 6)
+        topPadding + holeStep * 7.9, // Hole 7 (Dedo 7)
       ]
 
       // 1. Draw subtle horizontal note track guidelines
@@ -198,18 +144,15 @@ export const RecorderVisualizer: React.FC<Props> = ({
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'
       for (let i = 0; i < 8; i++) {
         const y = holeYPositions[i]
-        const isThumb = i === 0
-        const startLineX = isThumb ? fluteX - 42 : fluteX
-
         ctx.beginPath()
-        ctx.moveTo(startLineX, y)
+        ctx.moveTo(fluteX, y)
         ctx.lineTo(width, y)
         ctx.stroke()
       }
 
       // 2. Draw Hit Line / Reception Boundary
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
-      ctx.lineWidth = 2
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)'
+      ctx.lineWidth = 1.5
       ctx.setLineDash([4, 4])
       ctx.beginPath()
       ctx.moveTo(fluteX, 20)
@@ -233,52 +176,53 @@ export const RecorderVisualizer: React.FC<Props> = ({
 
         // Draw note shape for each covered hole
         note.holes.forEach((holeState, hIdx) => {
-          if (holeState === 0) return // Skip open holes (no white dots!)
+          if (holeState === 0) return // Skip open holes (no ghost white dots)
 
-          const isThumb = hIdx === 0
           const holeY = holeYPositions[hIdx]
-          const blockH = isThumb ? 18 : 20
-          const noteColor = isThumb ? skin.thumbColor : skin.primaryColor
-          const actualX = isThumb ? blockX - 42 : blockX
+          const blockH = 20
+          // Colors: Pulgar, 1 y 2 -> Cyan; 3, 4, 5, 6, 7 -> Blanco
+          const { color: noteColor, glow: noteGlow } = getHoleColors(hIdx, skin)
 
           ctx.save()
           ctx.fillStyle = noteColor
-          ctx.shadowColor = skin.glowColor
+          ctx.shadowColor = noteGlow
           ctx.shadowBlur = 12
 
           if (skin.shape === 'capsule') {
             const radius = blockH / 2
             ctx.beginPath()
-            ctx.roundRect(actualX, holeY - blockH / 2, blockWidth, blockH, radius)
+            ctx.roundRect(blockX, holeY - blockH / 2, blockWidth, blockH, radius)
             ctx.fill()
           } else if (skin.shape === 'rectangle') {
             ctx.beginPath()
-            ctx.roundRect(actualX, holeY - blockH / 2, blockWidth, blockH, 3)
+            ctx.roundRect(blockX, holeY - blockH / 2, blockWidth, blockH, 3)
             ctx.fill()
           } else {
             // Circle skin
             const radius = 10
             ctx.beginPath()
-            ctx.arc(actualX + 12, holeY, radius, 0, Math.PI * 2)
+            ctx.arc(blockX + 12, holeY, radius, 0, Math.PI * 2)
             ctx.fill()
           }
 
           // Pinched / Half hole indicator
           if (holeState === 0.5) {
             ctx.fillStyle = '#0b0d13'
-            ctx.fillRect(actualX, holeY - blockH / 2, blockWidth / 2, blockH)
+            ctx.fillRect(blockX, holeY - blockH / 2, blockWidth / 2, blockH)
             ctx.strokeStyle = '#ffffff'
             ctx.lineWidth = 1.5
-            ctx.strokeRect(actualX, holeY - blockH / 2, blockWidth, blockH)
+            ctx.strokeRect(blockX, holeY - blockH / 2, blockWidth, blockH)
           }
 
           // Note Pitch Text Label inside block
-          if (showLabelsRef.current && hIdx === 1 && blockWidth > 38) {
+          // Shown on Hole 1, or on Hole 0 if Hole 1 is open
+          const isPrimaryLabelLane = hIdx === 1 || (note.holes[1] === 0 && hIdx === 0)
+          if (showLabelsRef.current && isPrimaryLabelLane && blockWidth > 32) {
             ctx.fillStyle = '#000000'
             ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
-            ctx.fillText(note.letter, actualX + blockWidth / 2, holeY)
+            ctx.fillText(note.letter, blockX + blockWidth / 2, holeY)
           }
 
           ctx.restore()
@@ -289,7 +233,7 @@ export const RecorderVisualizer: React.FC<Props> = ({
       ripplesRef.current.forEach((r, idx) => {
         ctx.save()
         ctx.strokeStyle = r.color
-        ctx.lineWidth = 3
+        ctx.lineWidth = 2.5
         ctx.globalAlpha = Math.max(0, r.alpha)
         ctx.beginPath()
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2)
@@ -304,8 +248,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
       })
 
       // 5. Draw the Center Soprano Flute (Instrument Body & Holes)
-      const fluteTop = topPadding - 25
-      const fluteBottom = height - bottomPadding + 20
+      const fluteTop = topPadding - 32
+      const fluteBottom = topPadding + holeStep * 8.4
 
       // Flute wood/ivory gradient body
       const fluteGrad = ctx.createLinearGradient(fluteX - fluteWidth / 2, 0, fluteX + fluteWidth / 2, 0)
@@ -344,8 +288,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
 
       // Joint rings
       ctx.fillStyle = '#8f8369'
-      ctx.fillRect(fluteX - fluteWidth / 2 - 1, fluteTop + 55, fluteWidth + 2, 4)
-      ctx.fillRect(fluteX - fluteWidth / 2 - 1, fluteBottom - 25, fluteWidth + 2, 4)
+      ctx.fillRect(fluteX - fluteWidth / 2 - 1, fluteTop + 48, fluteWidth + 2, 4)
+      ctx.fillRect(fluteX - fluteWidth / 2 - 1, fluteBottom - 20, fluteWidth + 2, 4)
 
       // Active note detection for hole glowing
       const curNote = currentSong.notes.find(
@@ -359,81 +303,37 @@ export const RecorderVisualizer: React.FC<Props> = ({
         // Spawn pulse ripples on active holes
         curNote.holes.forEach((h, hIdx) => {
           if (h > 0) {
-            const hX = hIdx === 0 ? fluteX - 42 : fluteX
             const hY = holeYPositions[hIdx]
+            const { color: rColor } = getHoleColors(hIdx, skin)
             ripplesRef.current.push({
-              x: hX,
+              x: fluteX,
               y: hY,
               radius: 10,
               alpha: 0.9,
-              color: hIdx === 0 ? skin.thumbColor : skin.primaryColor,
+              color: rColor,
             })
           }
         })
       }
 
-      // Draw the 8 Holes on the Flute
+      // Draw the 8 Holes on the Flute (All centered along fluteX)
       for (let i = 0; i < 8; i++) {
-        const isThumb = i === 0
         const holeY = holeYPositions[i]
         const isNoteActive = curNote ? curNote.holes[i] > 0 : false
-        const isUserPressed = userHolesRef.current[i] > 0
-        const isClosed = isNoteActive || isUserPressed
+        const isClosed = isNoteActive
         const isHalf = curNote ? curNote.holes[i] === 0.5 : false
+        const { color: holeColor, glow: holeGlow } = getHoleColors(i, skin)
 
-        if (isThumb) {
-          // ----------------- THUMB HOLE (Hole 0) -----------------
-          // Dedicated back hole placed to the left with connecting dotted bracket
-          const thumbX = fluteX - 42
-          ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)'
-          ctx.lineWidth = 1.5
-          ctx.setLineDash([3, 2])
-          ctx.beginPath()
-          ctx.moveTo(thumbX + 12, holeY)
-          ctx.lineTo(fluteX - fluteWidth / 2, holeY)
-          ctx.stroke()
-          ctx.setLineDash([])
-
-          // Thumb Hole Circle
-          ctx.save()
-          if (isClosed) {
-            ctx.fillStyle = skin.thumbColor
-            ctx.shadowColor = skin.thumbColor
-            ctx.shadowBlur = 16
-          } else {
-            ctx.fillStyle = '#1c1917'
-          }
-          ctx.strokeStyle = skin.thumbColor
-          ctx.lineWidth = 2.5
-          ctx.beginPath()
-          ctx.arc(thumbX, holeY, 11, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.stroke()
-
-          if (isHalf) {
-            ctx.fillStyle = '#1c1917'
-            ctx.beginPath()
-            ctx.arc(thumbX, holeY, 11, -Math.PI / 2, Math.PI / 2)
-            ctx.fill()
-          }
-
-          // Hole 'T' label
-          ctx.fillStyle = isClosed ? '#000000' : '#ffffff'
-          ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText('T', thumbX, holeY)
-          ctx.restore()
-        } else if (i === 6 || i === 7) {
-          // ----------------- DOUBLE HOLES 6 & 7 -----------------
+        if (i === 6 || i === 7) {
+          // Double holes 6 and 7 (centered at fluteX)
           const dRadius = 4.5
           const leftHoleX = fluteX - 6
           const rightHoleX = fluteX + 6
 
           ctx.save()
           if (isClosed) {
-            ctx.fillStyle = skin.primaryColor
-            ctx.shadowColor = skin.glowColor
+            ctx.fillStyle = holeColor
+            ctx.shadowColor = holeGlow
             ctx.shadowBlur = 14
           } else {
             ctx.fillStyle = '#221f1a'
@@ -448,19 +348,23 @@ export const RecorderVisualizer: React.FC<Props> = ({
           ctx.stroke()
 
           // Right sub-hole
+          if (isHalf) {
+            ctx.fillStyle = '#221f1a'
+            ctx.strokeStyle = '#453f35'
+          }
           ctx.beginPath()
           ctx.arc(rightHoleX, holeY, dRadius, 0, Math.PI * 2)
           ctx.fill()
           ctx.stroke()
           ctx.restore()
         } else {
-          // ----------------- SINGLE FRONT HOLES 1-5 -----------------
-          const radius = i <= 3 ? 8 : 7.5
+          // Single front holes: 0 (Pulgar), 1, 2, 3, 4, 5
+          const radius = i === 0 ? 8.5 : i <= 3 ? 8 : 7.5
 
           ctx.save()
           if (isClosed) {
-            ctx.fillStyle = skin.primaryColor
-            ctx.shadowColor = skin.glowColor
+            ctx.fillStyle = holeColor
+            ctx.shadowColor = holeGlow
             ctx.shadowBlur = 16
           } else {
             ctx.fillStyle = '#221f1a'
@@ -472,9 +376,17 @@ export const RecorderVisualizer: React.FC<Props> = ({
           ctx.fill()
           ctx.stroke()
 
-          // Number label inside hole
+          // Pinched / half hole
+          if (isHalf) {
+            ctx.fillStyle = '#221f1a'
+            ctx.beginPath()
+            ctx.arc(fluteX, holeY, radius, -Math.PI / 2, Math.PI / 2)
+            ctx.fill()
+          }
+
+          // Number label inside hole: '0' for Pulgar, '1' for 1, '2' for 2, etc.
           ctx.fillStyle = isClosed ? '#000000' : '#a89a7d'
-          ctx.font = 'bold 8px -apple-system, BlinkMacSystemFont, sans-serif'
+          ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText(i.toString(), fluteX, holeY)
@@ -490,7 +402,7 @@ export const RecorderVisualizer: React.FC<Props> = ({
         const remainingTime = Math.max(0, firstNote.startTime - time).toFixed(1)
         ctx.save()
         ctx.fillStyle = skin.primaryColor
-        ctx.shadowColor = skin.glowColor
+        ctx.shadowColor = skin.glowPrimary
         ctx.shadowBlur = 10
         ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif'
         ctx.textAlign = 'center'
@@ -533,8 +445,8 @@ export const RecorderVisualizer: React.FC<Props> = ({
             </div>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
               {currentNote
-                ? `Digitación: [T: ${currentNote.holes[0] === 0.5 ? '½' : currentNote.holes[0]} | ${currentNote.holes.slice(1, 4).join('')} | ${currentNote.holes.slice(4).join('')}]`
-                : 'Presiona Play o toca las teclas (Space, A S D, J K L ;)'}
+                ? `Digitación: [Pulgar 0: ${currentNote.holes[0] === 0.5 ? '½' : currentNote.holes[0]} | ${currentNote.holes.slice(1, 4).join('')} | ${currentNote.holes.slice(4).join('')}]`
+                : 'Presiona Play para iniciar la visualización'}
             </p>
           </div>
         </div>
@@ -596,7 +508,7 @@ export const RecorderVisualizer: React.FC<Props> = ({
       {/* Main Visualizer Stage Canvas */}
       <div
         ref={containerRef}
-        className="w-full h-[520px] md:h-[580px] bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden relative shadow-2xl"
+        className="w-full h-[540px] md:h-[600px] bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden relative shadow-2xl"
       >
         <canvas
           id="recorder-visualizer-canvas"
@@ -614,62 +526,6 @@ export const RecorderVisualizer: React.FC<Props> = ({
             onSeek(targetTime)
           }}
         />
-
-        {/* Floating Quick Keybindings Guide on bottom right */}
-        <div className="absolute bottom-3 right-4 bg-slate-900/80 border border-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-[11px] text-slate-400 flex items-center gap-2 select-none pointer-events-none">
-          <span className="font-semibold text-slate-300">Teclado:</span>
-          <span className="font-mono text-amber-400">[Space]=T</span>
-          <span className="font-mono text-cyan-400">[A S D]=1-3</span>
-          <span className="font-mono text-emerald-400">[J K L ;]=4-7</span>
-        </div>
-      </div>
-
-      {/* Keyboard Quick Finger Testing Ribbon */}
-      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 bg-slate-900/70 border border-slate-800 p-2.5 rounded-2xl backdrop-blur-md">
-        {FINGER_KEYS.map((item) => {
-          const isPressed = userHoles[item.id] > 0
-          const isNoteClosed = currentNote ? currentNote.holes[item.id] > 0 : false
-          const isThumb = item.id === 0
-
-          return (
-            <button
-              key={item.id}
-              onMouseDown={() => {
-                userHolesRef.current[item.id] = 1
-                setUserHoles([...userHolesRef.current])
-              }}
-              onMouseUp={() => {
-                userHolesRef.current[item.id] = 0
-                setUserHoles([...userHolesRef.current])
-              }}
-              onTouchStart={() => {
-                userHolesRef.current[item.id] = 1
-                setUserHoles([...userHolesRef.current])
-              }}
-              onTouchEnd={() => {
-                userHolesRef.current[item.id] = 0
-                setUserHoles([...userHolesRef.current])
-              }}
-              className={`p-2 rounded-xl text-center transition select-none cursor-pointer flex flex-col items-center justify-between border ${
-                isPressed
-                  ? isThumb
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 font-black'
-                    : 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20 font-black'
-                  : isNoteClosed
-                    ? 'bg-slate-800/90 border-cyan-500/40 text-cyan-300 font-bold'
-                    : 'bg-slate-950/80 border-slate-800/80 text-slate-400 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black">{item.label}</span>
-                <span className="text-[10px] opacity-70 font-mono">[{item.key}]</span>
-              </div>
-              <span className="text-[9px] mt-0.5 truncate max-w-full">
-                {item.name}
-              </span>
-            </button>
-          )
-        })}
       </div>
     </div>
   )

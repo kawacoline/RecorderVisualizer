@@ -333,10 +333,10 @@ export function App() {
             <h1 className="text-base font-black tracking-tight text-white flex items-center gap-2">
               RECORDER STUDIO
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                Visualizer
+                Visualizador
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Interactive Partiture & Finger Training</p>
+            <p className="text-xs text-slate-400">Visualizador de Partituras & Digitación para Flauta Dulce</p>
           </div>
         </div>
 
