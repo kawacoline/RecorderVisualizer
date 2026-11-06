@@ -63,4 +63,35 @@ export const SILHOUETTES: Record<string, string> = {
       <path d="M130,230 C160,210 240,210 270,230 C290,270 300,350 295,420 L105,420 C100,350 110,270 130,230 Z" />
     </svg>
   `,
+
+  // Tetris Russian Architecture / St. Basil Silhouette
+  tetris: `
+    <svg viewBox="0 0 400 450" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <!-- Onion Domes & Towers -->
+      <path d="M200,40 C190,65 175,85 185,105 C170,110 160,130 160,150 L240,150 C240,130 230,110 215,105 C225,85 210,65 200,40 Z" />
+      <path d="M120,110 C110,130 95,145 105,165 C95,170 85,185 85,205 L155,205 C155,185 145,170 135,165 C145,145 130,130 120,110 Z" />
+      <path d="M280,110 C270,130 255,145 265,165 C255,170 245,185 245,205 L315,205 C315,185 305,170 295,165 C305,145 290,130 280,110 Z" />
+      <rect x="70" y="205" width="260" height="215" rx="10" />
+      <!-- Arch windows -->
+      <circle cx="200" cy="270" r="25" fill="#ffffff" />
+      <rect x="180" y="270" width="40" height="50" fill="#ffffff" />
+    </svg>
+  `,
+
+  // Titanic / Ocean Liner Silhouette
+  titanic: `
+    <svg viewBox="0 0 400 450" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <!-- 4 Smokestacks -->
+      <rect x="110" y="110" width="18" height="60" rx="3" transform="rotate(-8 110 110)" />
+      <rect x="155" y="110" width="18" height="60" rx="3" transform="rotate(-8 155 110)" />
+      <rect x="200" y="110" width="18" height="60" rx="3" transform="rotate(-8 200 110)" />
+      <rect x="245" y="110" width="18" height="60" rx="3" transform="rotate(-8 245 110)" />
+      <!-- Ship hull & decks -->
+      <path d="M60,220 L340,220 C340,220 310,290 270,300 L90,300 C70,290 60,250 60,220 Z" />
+      <rect x="90" y="170" width="200" height="50" rx="4" />
+      <!-- Water waves -->
+      <path d="M40,310 Q80,290 120,310 T200,310 T280,310 T360,310 L360,360 L40,360 Z" />
+    </svg>
+  `,
 }
+

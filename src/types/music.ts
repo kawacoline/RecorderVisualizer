@@ -22,21 +22,26 @@ export interface NoteEvent {
   noteIndex?: number
 }
 
+export type ThemeColor = 'cyan' | 'emerald' | 'purple' | 'amber' | 'monochrome'
+
 export interface SongMetadata {
   id: string
   title: string
   subtitle: string
   artist: string
-  category: 'Touhou & Anime' | 'Folk & Sea Shanty' | 'Classical' | 'Custom'
+  category: 'Touhou & Anime' | 'Folk & Sea Shanty' | 'Classical' | 'Gaming & Pop' | 'Custom'
   tempo: number // BPM
   bannerCta: string // e.g. "Subscribe for daily tutorials"
   speedLabel: string // e.g. '"SLOWED"'
   bottomTitle: string // e.g. "BAD APPLE"
   bottomSubtitle: string // e.g. "Recorder Tutorial"
-  silhouettePreset: 'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'custom'
+  channelHandle?: string
+  themeColor?: ThemeColor
+  silhouettePreset: 'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'tetris' | 'titanic' | 'custom'
   customSilhouetteUrl?: string
   fingeringSystem: 'baroque' | 'german'
   notes: NoteEvent[]
 }
 
 export type AspectRatio = '9:16' | '16:9' | 'responsive'
+

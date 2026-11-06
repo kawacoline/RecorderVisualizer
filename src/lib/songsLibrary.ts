@@ -32,7 +32,7 @@ function createNotesFromSequence(
       pitch: `${name}${octave}`,
       midi,
       startTime: currentTime,
-      duration: Math.max(0.12, duration * 0.92), // Slight staccato spacing for realistic breath articulation
+      duration: Math.max(0.1, duration * 0.94),
       letter,
       solfege,
       holes: fingering.holes,
@@ -46,48 +46,50 @@ function createNotesFromSequence(
 }
 
 // -------------------------------------------------------------
-// 1. BAD APPLE!! (Full Complete Arrangement)
-// By ZUN / Alstroemeria Records - Arranged in E minor
+// 1. BAD APPLE!! (Authentic Alstroemeria Records feat. nomico)
+// Arranged in E minor at the real 138 BPM
 // -------------------------------------------------------------
-const BAD_APPLE_TEMPO = 138
+const BAD_APPLE_BPM = 138
 
 const BAD_APPLE_SEQUENCE: [string, number][] = [
-  // --- Intro (Slowed / Tutorial Intro) ---
-  ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['E5', 0.5], ['D5', 0.5], ['B4', 1.0],
-  ['E4', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 0.5], ['F#4', 1.0],
-  ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 1.0], ['F#4', 0.5], ['E4', 0.5], ['F#4', 0.5],
-  ['G4', 0.5], ['A4', 1.0], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 2.0],
+  // --- Intro: Iconic driving melody ---
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['A4', 1.0],
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0],
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['A4', 1.0],
+  ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 1.0],
+
+  // Intro repeat with variation
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['A4', 1.0],
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0],
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['A4', 1.0],
+  ['G4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 2.0],
 
   // --- Verse 1: "Nagareteku toki no naka de demo" ---
-  ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5],
-  ['E5', 0.5], ['D5', 0.5], ['B4', 1.0], ['A4', 0.5], ['G4', 0.5], ['F#4', 1.0],
-  ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5],
-  ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 1.5], ['REST', 0.5],
-
+  ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['A4', 0.5],
+  ['B4', 0.5], ['C5', 0.5], ['A4', 1.5], ['REST', 0.5],
   // "Kedarusa ga hora guruguru mawatte"
-  ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5], ['B4', 0.5],
-  ['E5', 0.5], ['D5', 0.5], ['B4', 1.0], ['A4', 0.5], ['B4', 0.5], ['D5', 1.0],
-  ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5],
-  ['E4', 1.0], ['E4', 0.5], ['F#4', 0.5], ['E4', 2.0],
-
-  // --- Pre-Chorus: "Watashi kara hanareru kokoro mo" ---
-  ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['B4', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5],
-  ['G4', 0.5], ['F#4', 0.5], ['E4', 1.0], ['E4', 0.5], ['F#4', 0.5], ['G4', 1.0],
-  ['A4', 0.5], ['B4', 0.5], ['C5', 1.0], ['C5', 0.5], ['D5', 0.5], ['C5', 0.5], ['B4', 0.5],
-  ['A4', 0.5], ['G4', 0.5], ['F#4', 1.0], ['F#4', 0.5], ['G4', 0.5], ['A4', 1.0],
-
+  ['A4', 0.5], ['A4', 0.5], ['A4', 0.5], ['A4', 0.5], ['A4', 0.5], ['A4', 0.5], ['A4', 0.5], ['G4', 0.5],
+  ['A4', 0.5], ['B4', 0.5], ['G4', 1.5], ['REST', 0.5],
+  // "Watashi kara hanareru kokoro mo"
+  ['G4', 0.5], ['G4', 0.5], ['G4', 0.5], ['G4', 0.5], ['G4', 0.5], ['G4', 0.5], ['G4', 0.5], ['F#4', 0.5],
+  ['G4', 0.5], ['A4', 0.5], ['F#4', 1.5], ['REST', 0.5],
   // "Mienai furi shite tsudzukeru"
-  ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['B4', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5],
-  ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['D5', 0.5], ['C5', 0.5], ['B4', 1.0],
-  ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['F#4', 0.5],
+  ['E4', 0.5], ['E4', 0.5], ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5],
+  ['B4', 2.0],
+
+  // --- Pre-Chorus ---
+  ['B4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5],
+  ['B4', 0.5], ['C5', 0.5], ['D5', 1.0], ['D5', 0.5], ['E5', 0.5], ['F#5', 1.0],
+  ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 0.5],
   ['B4', 1.0], ['B4', 1.0], ['B4', 2.0],
 
-  // --- Chorus (Iconic Theme): "Ugokidaseba tomaranai" ---
+  // --- Chorus: "Ugokidaseba tomaranai" ---
   ['E5', 0.5], ['E5', 0.5], ['E5', 0.5], ['D5', 0.5], ['E5', 0.5], ['F#5', 0.5], ['D5', 1.0],
   ['B4', 0.5], ['B4', 0.5], ['D5', 0.5], ['E5', 0.5], ['B4', 1.0], ['A4', 1.0],
   ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5],
   ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 1.5], ['REST', 0.5],
 
+  // "Mawaru mawaru sekai no sumi de"
   ['E5', 0.5], ['E5', 0.5], ['E5', 0.5], ['D5', 0.5], ['E5', 0.5], ['F#5', 0.5], ['D5', 1.0],
   ['B4', 0.5], ['B4', 0.5], ['D5', 0.5], ['E5', 0.5], ['F#5', 1.0], ['E5', 1.0],
   ['D5', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['G4', 0.5], ['F#4', 0.5],
@@ -99,14 +101,12 @@ const BAD_APPLE_SEQUENCE: [string, number][] = [
   ['G4', 0.5], ['A4', 0.5], ['B4', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5],
   ['E4', 0.5], ['F#4', 0.5], ['G4', 0.5], ['A4', 0.5], ['B4', 1.5], ['REST', 0.5],
 
-  // Final resolve
   ['E5', 0.5], ['D5', 0.5], ['B4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F#4', 0.5], ['E4', 1.0],
-  ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['D5', 0.5], ['B4', 0.5], ['E5', 2.5],
+  ['G4', 0.5], ['A4', 0.5], ['B4', 1.0], ['D5', 0.5], ['B4', 0.5], ['E5', 2.0],
 ]
 
 // -------------------------------------------------------------
 // 2. THE SAILOR'S HORNPIPE / RAKE HORNPIPE (Complete Traditional Song)
-// Famous brisk sea shanty hornpipe dance in G Major
 // -------------------------------------------------------------
 const HORNPIPE_TEMPO = 116
 
@@ -138,7 +138,6 @@ const HORNPIPE_SEQUENCE: [string, number][] = [
 
 // -------------------------------------------------------------
 // 3. GREENSLEEVES (Full Complete Arrangement)
-// 16th-Century Traditional English Ballad in A Dorian
 // -------------------------------------------------------------
 const GREENSLEEVES_TEMPO = 96
 
@@ -155,7 +154,7 @@ const GREENSLEEVES_SEQUENCE: [string, number][] = [
   ['C5', 1.5], ['B4', 0.5], ['A4', 1.0], ['G#4', 1.5], ['F#4', 0.5], ['G#4', 1.0],
   ['A4', 3.0], ['A4', 2.0], ['REST', 1.0],
 
-  // --- Chorus: "Greensleeves was all my joy" ---
+  // --- Chorus ---
   ['G5', 3.0], ['G5', 1.5], ['F#5', 0.5], ['E5', 1.0],
   ['D5', 2.0], ['B4', 1.0], ['G4', 1.5], ['A4', 0.5], ['B4', 1.0],
   ['C5', 2.0], ['A4', 1.0], ['A4', 1.5], ['G#4', 0.5], ['A4', 1.0],
@@ -165,27 +164,50 @@ const GREENSLEEVES_SEQUENCE: [string, number][] = [
   ['D5', 2.0], ['B4', 1.0], ['G4', 1.5], ['A4', 0.5], ['B4', 1.0],
   ['C5', 1.5], ['B4', 0.5], ['A4', 1.0], ['G#4', 1.5], ['F#4', 0.5], ['G#4', 1.0],
   ['A4', 4.0], ['REST', 1.0],
-
-  // --- Verse 2 (Ornamented recorder variation) ---
-  ['A4', 0.5], ['B4', 0.5],
-  ['C5', 1.5], ['B4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 1.5], ['F5', 0.5], ['E5', 1.0],
-  ['D5', 1.5], ['C5', 0.5], ['D5', 0.5], ['B4', 0.5], ['G4', 1.5], ['A4', 0.5], ['B4', 1.0],
-  ['C5', 1.5], ['B4', 0.5], ['A4', 1.0], ['A4', 1.5], ['G#4', 0.5], ['A4', 1.0],
-  ['B4', 2.0], ['G#4', 1.0], ['E4', 2.0], ['A4', 1.0],
-
-  // Final resolution
-  ['C5', 1.5], ['B4', 0.5], ['A4', 1.0], ['G#4', 1.5], ['F#4', 0.5], ['G#4', 1.0],
-  ['A4', 4.0],
 ]
 
 // -------------------------------------------------------------
-// 4. BEETHOVEN - ODE TO JOY (Symphony No. 9 - Complete Recorder Theme)
-// In G Major / D Major for Soprano Recorder
+// 4. TETRIS THEME (Korobeiniki - Full Russian Folk Song)
+// Arranged for Soprano Recorder at 140 BPM
+// -------------------------------------------------------------
+const TETRIS_BPM = 140
+
+const TETRIS_SEQUENCE: [string, number][] = [
+  // --- Part A ---
+  ['E5', 1.0], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0], ['C5', 0.5], ['B4', 0.5],
+  ['A4', 1.0], ['A4', 0.5], ['C5', 0.5], ['E5', 1.0], ['D5', 0.5], ['C5', 0.5],
+  ['B4', 1.5], ['C5', 0.5], ['D5', 1.0], ['E5', 1.0],
+  ['C5', 1.0], ['A4', 1.0], ['A4', 2.0],
+
+  ['D5', 1.5], ['F5', 0.5], ['A5', 1.0], ['G5', 0.5], ['F5', 0.5],
+  ['E5', 1.5], ['C5', 0.5], ['E5', 1.0], ['D5', 0.5], ['C5', 0.5],
+  ['B4', 1.0], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0], ['E5', 1.0],
+  ['C5', 1.0], ['A4', 1.0], ['A4', 2.0],
+
+  // --- Part B (Bass drop & repeat) ---
+  ['E5', 1.0], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0], ['C5', 0.5], ['B4', 0.5],
+  ['A4', 1.0], ['A4', 0.5], ['C5', 0.5], ['E5', 1.0], ['D5', 0.5], ['C5', 0.5],
+  ['B4', 1.5], ['C5', 0.5], ['D5', 1.0], ['E5', 1.0],
+  ['C5', 1.0], ['A4', 1.0], ['A4', 2.0],
+
+  ['D5', 1.5], ['F5', 0.5], ['A5', 1.0], ['G5', 0.5], ['F5', 0.5],
+  ['E5', 1.5], ['C5', 0.5], ['E5', 1.0], ['D5', 0.5], ['C5', 0.5],
+  ['B4', 1.0], ['B4', 0.5], ['C5', 0.5], ['D5', 1.0], ['E5', 1.0],
+  ['C5', 1.0], ['A4', 1.0], ['A4', 2.0],
+
+  // --- Part C (Coda / Accelerando finish) ---
+  ['E4', 2.0], ['C4', 2.0], ['D4', 2.0], ['B3', 2.0],
+  ['C4', 2.0], ['A3', 2.0], ['G#3', 2.0], ['B3', 2.0],
+  ['E4', 2.0], ['C4', 2.0], ['D4', 2.0], ['B3', 2.0],
+  ['C4', 1.0], ['E4', 1.0], ['A4', 2.0], ['A4', 2.0],
+]
+
+// -------------------------------------------------------------
+// 5. BEETHOVEN - ODE TO JOY (Complete Theme)
 // -------------------------------------------------------------
 const ODE_TO_JOY_TEMPO = 120
 
 const ODE_TO_JOY_SEQUENCE: [string, number][] = [
-  // --- Section A ---
   ['B4', 1.0], ['B4', 1.0], ['C5', 1.0], ['D5', 1.0],
   ['D5', 1.0], ['C5', 1.0], ['B4', 1.0], ['A4', 1.0],
   ['G4', 1.0], ['G4', 1.0], ['A4', 1.0], ['B4', 1.0],
@@ -196,13 +218,11 @@ const ODE_TO_JOY_SEQUENCE: [string, number][] = [
   ['G4', 1.0], ['G4', 1.0], ['A4', 1.0], ['B4', 1.0],
   ['A4', 1.5], ['G4', 0.5], ['G4', 2.0],
 
-  // --- Section B (Bridge) ---
   ['A4', 1.0], ['A4', 1.0], ['B4', 1.0], ['G4', 1.0],
   ['A4', 1.0], ['B4', 0.5], ['C5', 0.5], ['B4', 1.0], ['G4', 1.0],
   ['A4', 1.0], ['B4', 0.5], ['C5', 0.5], ['B4', 1.0], ['A4', 1.0],
   ['G4', 1.0], ['A4', 1.0], ['D4', 2.0],
 
-  // --- Section A' (Recap & Finale) ---
   ['B4', 1.0], ['B4', 1.0], ['C5', 1.0], ['D5', 1.0],
   ['D5', 1.0], ['C5', 1.0], ['B4', 1.0], ['A4', 1.0],
   ['G4', 1.0], ['G4', 1.0], ['A4', 1.0], ['B4', 1.0],
@@ -213,17 +233,32 @@ export const PRESET_SONGS: SongMetadata[] = [
   {
     id: 'bad-apple',
     title: 'Bad Apple!!',
-    subtitle: 'feat. SEKAI • Alstroemeria Records',
+    subtitle: 'Alstroemeria Records feat. nomico (Official 138 BPM)',
     artist: 'ZUN / Masayoshi Minoshima',
     category: 'Touhou & Anime',
-    tempo: BAD_APPLE_TEMPO,
-    bannerCta: 'Subscribe for daily tutorials',
-    speedLabel: '"SLOWED"',
-    bottomTitle: 'BAD APPLE',
+    tempo: BAD_APPLE_BPM,
+    bannerCta: 'Learn with Recorder Rhythm Game',
+    speedLabel: '138 BPM',
+    bottomTitle: 'BAD APPLE!!',
     bottomSubtitle: 'Recorder Tutorial',
     silhouettePreset: 'reimu',
     fingeringSystem: 'baroque',
-    notes: createNotesFromSequence(BAD_APPLE_SEQUENCE, BAD_APPLE_TEMPO),
+    notes: createNotesFromSequence(BAD_APPLE_SEQUENCE, BAD_APPLE_BPM),
+  },
+  {
+    id: 'tetris',
+    title: 'Tetris Theme (Korobeiniki)',
+    subtitle: 'Famous Russian Folk Dance',
+    artist: 'Nikolay Nekrasov / Hirokazu Tanaka',
+    category: 'Gaming & Pop',
+    tempo: TETRIS_BPM,
+    bannerCta: 'Rhythm Game Classic',
+    speedLabel: '140 BPM',
+    bottomTitle: 'TETRIS THEME',
+    bottomSubtitle: 'Korobeiniki',
+    silhouettePreset: 'tetris',
+    fingeringSystem: 'baroque',
+    notes: createNotesFromSequence(TETRIS_SEQUENCE, TETRIS_BPM),
   },
   {
     id: 'sailors-hornpipe',
@@ -233,9 +268,9 @@ export const PRESET_SONGS: SongMetadata[] = [
     category: 'Folk & Sea Shanty',
     tempo: HORNPIPE_TEMPO,
     bannerCta: 'Traditional Sea Shanty Classics',
-    speedLabel: '"STANDARD TEMPO"',
+    speedLabel: '116 BPM',
     bottomTitle: "THE SAILOR'S HORNPIPE",
-    bottomSubtitle: 'Recorder Tutorial',
+    bottomSubtitle: 'Rake Hornpipe',
     silhouettePreset: 'sailor',
     fingeringSystem: 'baroque',
     notes: createNotesFromSequence(HORNPIPE_SEQUENCE, HORNPIPE_TEMPO),
@@ -248,9 +283,9 @@ export const PRESET_SONGS: SongMetadata[] = [
     category: 'Folk & Sea Shanty',
     tempo: GREENSLEEVES_TEMPO,
     bannerCta: 'Renaissance Recorder Classics',
-    speedLabel: '"ANDANTE"',
+    speedLabel: '96 BPM',
     bottomTitle: 'GREENSLEEVES',
-    bottomSubtitle: 'Recorder Tutorial',
+    bottomSubtitle: '16th Century Ballad',
     silhouettePreset: 'greentea',
     fingeringSystem: 'baroque',
     notes: createNotesFromSequence(GREENSLEEVES_SEQUENCE, GREENSLEEVES_TEMPO),
@@ -263,9 +298,9 @@ export const PRESET_SONGS: SongMetadata[] = [
     category: 'Classical',
     tempo: ODE_TO_JOY_TEMPO,
     bannerCta: 'Master Classical Repertoire',
-    speedLabel: '"ALLEGRO"',
+    speedLabel: '120 BPM',
     bottomTitle: 'ODE TO JOY',
-    bottomSubtitle: 'Recorder Tutorial',
+    bottomSubtitle: 'Beethoven',
     silhouettePreset: 'beethoven',
     fingeringSystem: 'baroque',
     notes: createNotesFromSequence(ODE_TO_JOY_SEQUENCE, ODE_TO_JOY_TEMPO),

@@ -1,20 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
-import { Music2, Sparkles } from 'lucide-react'
+import {
+  Music2,
+  Gamepad2,
+  Video,
+  BookOpen,
+  Upload,
+  Play,
+  Pause,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
 import type { AspectRatio, SongMetadata } from './types/music'
 import { PRESET_SONGS } from './lib/songsLibrary'
+import { RecorderRhythmGame } from './components/RecorderRhythmGame'
 import { RecorderVisualizerCanvas } from './components/RecorderVisualizerCanvas'
-import { VisualizerControls } from './components/VisualizerControls'
 import { UploadPartitureModal } from './components/UploadPartitureModal'
+import { FingeringGuideModal } from './components/FingeringGuideModal'
 import { audioEngine } from './lib/audioEngine'
+import { videoRecorder } from './lib/videoRecorder'
 
 export function App() {
   const [currentSong, setCurrentSong] = useState<SongMetadata>(PRESET_SONGS[0])
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
-  const [playbackRate, setPlaybackRate] = useState<number>(0.5) // Default to 0.5x "Slowed Tutorial" like reference video
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0) // 1.0x standard tempo default
+  const [viewMode, setViewMode] = useState<'rhythm' | 'video'>('rhythm')
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16')
   const [fingeringSystem, setFingeringSystem] = useState<'baroque' | 'german'>('baroque')
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
+  const [isFingeringGuideOpen, setIsFingeringGuideOpen] = useState<boolean>(false)
+  const [volume, setVolume] = useState<number>(0.8)
+  const [isMuted, setIsMuted] = useState<boolean>(false)
+  const [isExporting, setIsExporting] = useState<boolean>(false)
 
   const playedNoteIdsRef = useRef<Set<string>>(new Set())
   const lastFrameTimeRef = useRef<number | null>(null)
@@ -57,7 +75,6 @@ export function App() {
   useEffect(() => {
     if (!isPlaying) return
 
-    // Find notes that should play now
     currentSong.notes.forEach((note) => {
       if (
         currentTime >= note.startTime &&
@@ -65,7 +82,6 @@ export function App() {
         !playedNoteIdsRef.current.has(note.id)
       ) {
         playedNoteIdsRef.current.add(note.id)
-        // Adjust audio duration according to playback rate
         const synthDuration = note.duration / playbackRate
         audioEngine.playNote(note.midi, synthDuration)
       }
@@ -83,7 +99,6 @@ export function App() {
   const handleSeek = (time: number) => {
     setCurrentTime(time)
     audioEngine.stopAll()
-    // Reset notes that are ahead of new seek time
     playedNoteIdsRef.current.forEach((id) => {
       const note = currentSong.notes.find((n) => n.id === id)
       if (note && note.startTime > time) {
@@ -107,10 +122,58 @@ export function App() {
     setIsPlaying(false)
   }
 
+  const handleToggleMute = () => {
+    const next = !isMuted
+    setIsMuted(next)
+    audioEngine.setMuted(next)
+  }
+
+  const handleVolumeChange = (v: number) => {
+    setVolume(v)
+    audioEngine.setVolume(v)
+    if (isMuted && v > 0) {
+      setIsMuted(false)
+      audioEngine.setMuted(false)
+    }
+  }
+
+  const handleExportVideo = async () => {
+    const canvas = document.getElementById('recorder-visualizer-canvas') as HTMLCanvasElement
+    if (!canvas) {
+      setViewMode('video')
+      return
+    }
+
+    setIsExporting(true)
+    handleRestart()
+
+    const audioDest = audioEngine.getAudioStreamDestination()
+    videoRecorder.startRecording(canvas, audioDest)
+
+    if (!isPlaying) {
+      handlePlayPause()
+    }
+
+    const checkInterval = setInterval(async () => {
+      const remaining = songDuration - currentTime
+      if (remaining <= 0.2 || !videoRecorder.recording) {
+        clearInterval(checkInterval)
+        await videoRecorder.stopRecording(`${currentSong.title.toLowerCase().replace(/\s+/g, '-')}-recorder-tutorial.webm`)
+        setIsExporting(false)
+      }
+    }, 500)
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      {/* Top Header */}
-      <header className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+      {/* Top Navigation Bar */}
+      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 p-0.5 shadow-lg shadow-cyan-500/20">
             <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-cyan-400">
@@ -118,116 +181,301 @@ export function App() {
             </div>
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-base font-black tracking-tight text-white flex items-center gap-2">
               RECORDER STUDIO
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                Visualizer
+                Rhythm Game
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Upload partitures & generate TikTok/Shorts recorder tutorials</p>
+            <p className="text-xs text-slate-400">Interactive Partiture & Finger Training</p>
           </div>
         </div>
 
-        {/* Quick presets pills */}
-        <div className="hidden md:flex items-center gap-2">
-          {PRESET_SONGS.map((song) => (
-            <button
-              key={song.id}
-              onClick={() => handleSongChange(song)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                currentSong.id === song.id
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-bold'
-                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-              }`}
-            >
-              {song.title}
-            </button>
-          ))}
+        {/* View Mode Switcher */}
+        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button
+            onClick={() => setViewMode('rhythm')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+              viewMode === 'rhythm'
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Gamepad2 className="w-4 h-4" />
+            Rhythm Game Mode
+          </button>
+          <button
+            onClick={() => setViewMode('video')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+              viewMode === 'video'
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Video className="w-4 h-4" />
+            Video Export (9:16)
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsFingeringGuideOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+            Fingering Chart
+          </button>
+
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition shadow-sm"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Upload Partiture
+          </button>
+
           <a
             href="https://github.com/kawacoline/RecorderVisualizer"
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+            className="p-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+            title="GitHub Repository"
           >
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
             </svg>
-            <span className="hidden sm:inline">GitHub</span>
           </a>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-center justify-center">
-        {/* Left/Center: Visualizer Canvas Display */}
-        <div className="w-full max-w-md lg:max-w-lg flex flex-col items-center">
-          <RecorderVisualizerCanvas
-            song={currentSong}
-            currentTime={currentTime}
-            isPlaying={isPlaying}
-            playbackRate={playbackRate}
-            aspectRatio={aspectRatio}
-            fingeringSystem={fingeringSystem}
-          />
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col gap-6">
+        {/* Preset Songs Picker Ribbon */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex-shrink-0 mr-1">
+            Songs:
+          </span>
+          {PRESET_SONGS.map((song) => (
+            <button
+              key={song.id}
+              onClick={() => handleSongChange(song)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                currentSong.id === song.id
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              <span>{song.title}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded ${currentSong.id === song.id ? 'bg-black/20 text-slate-950 font-mono' : 'text-slate-500 font-mono'}`}>
+                {song.tempo} BPM
+              </span>
+            </button>
+          ))}
         </div>
 
-        {/* Right: Controls & Tutorial Info */}
-        <div className="w-full lg:max-w-xl flex flex-col space-y-6">
-          <VisualizerControls
-            currentSong={currentSong}
-            currentTime={currentTime}
-            duration={songDuration}
-            isPlaying={isPlaying}
-            playbackRate={playbackRate}
-            aspectRatio={aspectRatio}
-            fingeringSystem={fingeringSystem}
-            onPlayPause={handlePlayPause}
-            onSeek={handleSeek}
-            onRestart={handleRestart}
-            onPlaybackRateChange={setPlaybackRate}
-            onAspectRatioChange={setAspectRatio}
-            onFingeringSystemChange={setFingeringSystem}
-            onSongChange={handleSongChange}
-            onOpenUploadModal={() => setIsUploadModalOpen(true)}
-          />
+        {/* View Mode Display */}
+        {viewMode === 'rhythm' ? (
+          /* Modern Rhythm Game Learning View */
+          <div className="flex flex-col gap-4">
+            <RecorderRhythmGame
+              song={currentSong}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              playbackRate={playbackRate}
+              fingeringSystem={fingeringSystem}
+              onSeek={handleSeek}
+            />
+          </div>
+        ) : (
+          /* Video Generator / Canvas View */
+          <div className="flex flex-col items-center justify-center py-4 space-y-3">
+            <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+              <span className="text-xs text-slate-400 font-semibold mr-1">Video Aspect:</span>
+              <button
+                onClick={() => setAspectRatio('9:16')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                  aspectRatio === '9:16'
+                    ? 'bg-cyan-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                9:16 Shorts/TikTok
+              </button>
+              <button
+                onClick={() => setAspectRatio('16:9')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                  aspectRatio === '16:9'
+                    ? 'bg-cyan-500 text-slate-950'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                16:9 Landscape
+              </button>
+            </div>
 
-          {/* Quick Info & Tutorial Guide Card */}
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 space-y-3">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              Soprano Recorder Tutorial Features
-            </h4>
-            <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 space-y-1">
-                <span className="font-semibold text-slate-200 block">8-Hole Fingering Roll</span>
-                <p>Cyan capsules show closed tone holes. White circles show open guide positions.</p>
+            <div className={`w-full ${aspectRatio === '16:9' ? 'max-w-4xl' : 'max-w-md'} shadow-2xl`}>
+              <RecorderVisualizerCanvas
+                song={currentSong}
+                currentTime={currentTime}
+                isPlaying={isPlaying}
+                playbackRate={playbackRate}
+                aspectRatio={aspectRatio}
+                fingeringSystem={fingeringSystem}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Playback & Rhythm Control Console */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 backdrop-blur-xl shadow-2xl space-y-3">
+          {/* Progress Timeline Slider */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>{formatTime(currentTime)}</span>
+              <span className="font-semibold text-slate-300">{currentSong.title} ({currentSong.notes.length} notes)</span>
+              <span>{formatTime(songDuration)}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(1, songDuration)}
+              step={0.05}
+              value={currentTime}
+              onChange={(e) => handleSeek(parseFloat(e.target.value))}
+              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+            />
+          </div>
+
+          {/* Transport Controls Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+            {/* Play / Restart */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRestart}
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                title="Restart Song"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handlePlayPause}
+                className="px-5 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black transition shadow-lg shadow-cyan-400/25 flex items-center gap-2"
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-5 h-5 fill-current" />
+                    <span>Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-current" />
+                    <span>Play</span>
+                  </>
+                )}
+              </button>
+
+              {/* Tempo / Speed selector */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                {[
+                  { r: 0.5, label: '0.5x Slow' },
+                  { r: 0.75, label: '0.75x' },
+                  { r: 1.0, label: '1.0x Real' },
+                  { r: 1.25, label: '1.25x' },
+                ].map((item) => (
+                  <button
+                    key={item.r}
+                    onClick={() => setPlaybackRate(item.r)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                      playbackRate === item.r
+                        ? 'bg-cyan-500 text-slate-950 font-bold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 space-y-1">
-                <span className="font-semibold text-slate-200 block">Dual Notation & Solfège</span>
-                <p>Displays both letters (E, F#, G) and Do-Re-Mi Solfège with the animated 3D needle.</p>
+            </div>
+
+            {/* Fingering system & Audio */}
+            <div className="flex items-center gap-3">
+              {/* Fingering System Toggle */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setFingeringSystem('baroque')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                    fingeringSystem === 'baroque'
+                      ? 'bg-cyan-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Baroque/English fingering"
+                >
+                  Baroque
+                </button>
+                <button
+                  onClick={() => setFingeringSystem('german')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                    fingeringSystem === 'german'
+                      ? 'bg-cyan-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="German fingering"
+                >
+                  German
+                </button>
               </div>
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 space-y-1">
-                <span className="font-semibold text-slate-200 block">Universal Partiture Ingestion</span>
-                <p>Drop any MIDI file, MusicXML (.xml/.mxml), or ABC notation file with auto-transposition.</p>
+
+              {/* Volume Slider */}
+              <div className="flex items-center gap-2 bg-slate-950 p-1.5 px-3 rounded-xl border border-slate-800">
+                <button onClick={handleToggleMute} className="text-slate-400 hover:text-white">
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-4 h-4 text-red-400" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-cyan-400" />
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                  className="w-16 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                />
               </div>
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 space-y-1">
-                <span className="font-semibold text-slate-200 block">1-Click Video Export</span>
-                <p>Exports high-definition 9:16 vertical video directly formatted for TikTok, Reels & Shorts.</p>
-              </div>
+
+              {/* Video Export button */}
+              {viewMode === 'video' && (
+                <button
+                  onClick={handleExportVideo}
+                  disabled={isExporting}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                >
+                  <Video className="w-4 h-4" />
+                  {isExporting ? 'Exporting...' : 'Export MP4/WebM'}
+                </button>
+              )}
             </div>
           </div>
         </div>
       </main>
 
-      {/* Partiture Upload Modal */}
+      {/* Upload Partiture Modal */}
       <UploadPartitureModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSongLoaded={handleSongChange}
         currentFingeringSystem={fingeringSystem}
+      />
+
+      {/* Fingering Guide Modal */}
+      <FingeringGuideModal
+        isOpen={isFingeringGuideOpen}
+        onClose={() => setIsFingeringGuideOpen(false)}
+        system={fingeringSystem}
       />
     </div>
   )

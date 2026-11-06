@@ -27,7 +27,7 @@ export const UploadPartitureModal: React.FC<Props> = ({
   const [artist, setArtist] = useState('Uploaded Score')
   const [speedLabel, setSpeedLabel] = useState('"SLOWED"')
   const [bannerCta, setBannerCta] = useState('Subscribe for daily tutorials')
-  const [silhouettePreset, setSilhouettePreset] = useState<'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'custom'>('reimu')
+  const [silhouettePreset, setSilhouettePreset] = useState<'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'tetris' | 'titanic' | 'custom'>('reimu')
   const [customSilhouetteUrl, setCustomSilhouetteUrl] = useState<string | undefined>(undefined)
 
   // ABC text editor state

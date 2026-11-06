@@ -38,17 +38,17 @@ export const RecorderVisualizerCanvas: React.FC<Props> = ({
   // 0: Thumb (slightly left of hole 1)
   // 1-7: Front holes
   const holeSpacing = stageHeight * 0.088
-  const startHoleY = stageTop + stageHeight * 0.16
+  const startHoleY = stageTop + stageHeight * 0.12
 
   const holeYPositions = [
-    startHoleY + holeSpacing * 0.8, // 0: Thumb (displayed offset left)
-    startHoleY + holeSpacing * 0.8, // 1: Left Index
-    startHoleY + holeSpacing * 1.8, // 2: Left Middle
-    startHoleY + holeSpacing * 2.8, // 3: Left Ring
-    startHoleY + holeSpacing * 4.2, // 4: Right Index
-    startHoleY + holeSpacing * 5.2, // 5: Right Middle
-    startHoleY + holeSpacing * 6.2, // 6: Right Ring (Double)
-    startHoleY + holeSpacing * 7.2, // 7: Right Pinky (Double)
+    startHoleY,                     // 0: Thumb (Dedicated top lane, Left Thumb)
+    startHoleY + holeSpacing * 1.0, // 1: Left Index
+    startHoleY + holeSpacing * 2.0, // 2: Left Middle
+    startHoleY + holeSpacing * 3.0, // 3: Left Ring
+    startHoleY + holeSpacing * 4.3, // 4: Right Index
+    startHoleY + holeSpacing * 5.3, // 5: Right Middle
+    startHoleY + holeSpacing * 6.3, // 6: Right Ring (Double)
+    startHoleY + holeSpacing * 7.3, // 7: Right Pinky (Double)
   ]
 
   // Track scroll speed (pixels per second)
