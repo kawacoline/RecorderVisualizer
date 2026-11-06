@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Media & local sample files
+*.mp4
+*.mp3
+*.wav
+*.musicxml

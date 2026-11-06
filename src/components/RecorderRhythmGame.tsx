@@ -19,7 +19,7 @@ interface Props {
 }
 
 // Finger metadata for the 8 recorder holes
-export const FINGER_LANES = [
+const FINGER_LANES = [
   { id: 0, label: 'T', name: 'Thumb', hand: 'Left Hand (Back)', key: 'Space', color: '#f59e0b', ringColor: 'ring-amber-500' },
   { id: 1, label: '1', name: 'Index', hand: 'Left Hand (Front)', key: 'A', color: '#00e5ff', ringColor: 'ring-cyan-400' },
   { id: 2, label: '2', name: 'Middle', hand: 'Left Hand (Front)', key: 'S', color: '#00e5ff', ringColor: 'ring-cyan-400' },
@@ -42,8 +42,21 @@ export const RecorderRhythmGame: React.FC<Props> = ({
   const [combo, setCombo] = useState<number>(0)
   const [lastJudgement, setLastJudgement] = useState<string>('READY')
   const [userHoles, setUserHoles] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0])
+  const userHolesRef = useRef<number[]>([0, 0, 0, 0, 0, 0, 0, 0])
   const lastNoteIdRef = useRef<string | null>(null)
   const ripplesRef = useRef<{ lane: number; progress: number; color: string }[]>([])
+
+  const currentTimeRef = useRef(currentTime)
+  currentTimeRef.current = currentTime
+
+  const songRef = useRef(song)
+  songRef.current = song
+
+  const playbackRateRef = useRef(playbackRate)
+  playbackRateRef.current = playbackRate
+
+  const flowDirectionRef = useRef(flowDirection)
+  flowDirectionRef.current = flowDirection
 
   // Keyboard input listeners for practicing fingerings
   useEffect(() => {
@@ -72,22 +85,16 @@ export const RecorderRhythmGame: React.FC<Props> = ({
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       const lane = keyMap[e.key]
       if (lane !== undefined) {
-        setUserHoles((prev) => {
-          const next = [...prev]
-          next[lane] = 1
-          return next
-        })
+        userHolesRef.current[lane] = 1
+        setUserHoles([...userHolesRef.current])
       }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
       const lane = keyMap[e.key]
       if (lane !== undefined) {
-        setUserHoles((prev) => {
-          const next = [...prev]
-          next[lane] = 0
-          return next
-        })
+        userHolesRef.current[lane] = 0
+        setUserHoles([...userHolesRef.current])
       }
     }
 
@@ -157,8 +164,13 @@ export const RecorderRhythmGame: React.FC<Props> = ({
       ctx.fillRect(0, 0, width, height)
 
       const numLanes = 8
-      const isHorizontal = flowDirection === 'horizontal'
-      const speed = 400 * playbackRate // pixels per second
+      const isHorizontal = flowDirectionRef.current === 'horizontal'
+      const speed = 400 * playbackRateRef.current // pixels per second
+      const time = currentTimeRef.current
+      const currentSong = songRef.current
+      const curNote = currentSong.notes.find(
+        (n) => time >= n.startTime && time < n.startTime + n.duration
+      )
 
       if (isHorizontal) {
         // HORIZONTAL RHYTHM LANES (Notes flow right to left into hit line)
@@ -207,8 +219,8 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         // Glowing receptor pads at hit line
         for (let i = 0; i < numLanes; i++) {
           const centerY = i * laneHeight + laneHeight / 2
-          const isActive = currentNote ? currentNote.holes[i] > 0 : false
-          const isUserPressing = userHoles[i] > 0
+          const isActive = curNote ? curNote.holes[i] > 0 : false
+          const isUserPressing = userHolesRef.current[i] > 0
           const laneMeta = FINGER_LANES[i]
 
           ctx.save()
@@ -230,14 +242,28 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         }
         ctx.restore()
 
+        // Countdown prompt if first note has not arrived yet
+        const firstNote = currentSong.notes[0]
+        if (firstNote && firstNote.startTime > time) {
+          const remainingTime = Math.max(0, firstNote.startTime - time).toFixed(1)
+          ctx.save()
+          ctx.fillStyle = '#06b6d4'
+          ctx.shadowColor = 'rgba(6, 182, 212, 0.6)'
+          ctx.shadowBlur = 8
+          ctx.font = 'bold 15px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(`PRIMERA NOTA EN: ${remainingTime}s`, width / 2, 28)
+          ctx.restore()
+        }
+
         // Draw Scrolling Note Blocks
-        const visibleWindow = (width - hitX) / speed
-        const activeAndUpcoming = song.notes.filter(
-          (n) => n.startTime + n.duration >= currentTime - 0.2 && n.startTime <= currentTime + visibleWindow + 0.5
+        const visibleWindow = Math.max(4.0, (width - hitX) / speed)
+        const activeAndUpcoming = currentSong.notes.filter(
+          (n) => n.startTime + n.duration >= time - 0.2 && n.startTime <= time + visibleWindow + 0.5
         )
 
         activeAndUpcoming.forEach((note) => {
-          const timeOffset = note.startTime - currentTime
+          const timeOffset = note.startTime - time
           const blockX = hitX + timeOffset * speed
           const blockWidth = Math.max(16, note.duration * speed - 4)
 
@@ -334,8 +360,8 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         // Receptor pads
         for (let i = 0; i < numLanes; i++) {
           const centerX = i * laneWidth + laneWidth / 2
-          const isActive = currentNote ? currentNote.holes[i] > 0 : false
-          const isUserPressing = userHoles[i] > 0
+          const isActive = curNote ? curNote.holes[i] > 0 : false
+          const isUserPressing = userHolesRef.current[i] > 0
           const laneMeta = FINGER_LANES[i]
 
           ctx.save()
@@ -356,14 +382,28 @@ export const RecorderRhythmGame: React.FC<Props> = ({
         }
         ctx.restore()
 
+        // Countdown prompt if first note has not arrived yet
+        const firstNote = currentSong.notes[0]
+        if (firstNote && firstNote.startTime > time) {
+          const remainingTime = Math.max(0, firstNote.startTime - time).toFixed(1)
+          ctx.save()
+          ctx.fillStyle = '#06b6d4'
+          ctx.shadowColor = 'rgba(6, 182, 212, 0.6)'
+          ctx.shadowBlur = 8
+          ctx.font = 'bold 15px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(`PRIMERA NOTA EN: ${remainingTime}s`, width / 2, 28)
+          ctx.restore()
+        }
+
         // Falling note blocks
-        const visibleWindow = hitY / speed
-        const activeAndUpcoming = song.notes.filter(
-          (n) => n.startTime + n.duration >= currentTime - 0.2 && n.startTime <= currentTime + visibleWindow + 0.5
+        const visibleWindow = Math.max(4.0, hitY / speed)
+        const activeAndUpcoming = currentSong.notes.filter(
+          (n) => n.startTime + n.duration >= time - 0.2 && n.startTime <= time + visibleWindow + 0.5
         )
 
         activeAndUpcoming.forEach((note) => {
-          const timeOffset = note.startTime - currentTime
+          const timeOffset = note.startTime - time
           const blockHeight = Math.max(16, note.duration * speed - 4)
           const blockY = hitY - timeOffset * speed - blockHeight
 
@@ -393,7 +433,7 @@ export const RecorderRhythmGame: React.FC<Props> = ({
 
     render()
     return () => cancelAnimationFrame(animId)
-  }, [song, currentTime, playbackRate, flowDirection, currentNote])
+  }, [])
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -623,13 +663,13 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                   cy="120"
                   r="12"
                   fill={
-                    currentNote && currentNote.holes[0] > 0
+                    (currentNote && currentNote.holes[0] > 0) || userHoles[0] > 0
                       ? '#f59e0b'
                       : '#1c1917'
                   }
                   stroke="#f59e0b"
                   strokeWidth="2.5"
-                  filter={currentNote && currentNote.holes[0] > 0 ? 'url(#amberGlow)' : undefined}
+                  filter={(currentNote && currentNote.holes[0] > 0) || userHoles[0] > 0 ? 'url(#amberGlow)' : undefined}
                 />
                 {/* Pinched thumb half indicator */}
                 {currentNote && currentNote.holes[0] === 0.5 && (
@@ -649,36 +689,36 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                 cx="80"
                 cy="120"
                 r="8.5"
-                fill={currentNote && currentNote.holes[1] > 0 ? '#00e5ff' : '#1c1917'}
+                fill={(currentNote && currentNote.holes[1] > 0) || userHoles[1] > 0 ? '#00e5ff' : '#1c1917'}
                 stroke="#00e5ff"
                 strokeWidth="2"
-                filter={currentNote && currentNote.holes[1] > 0 ? 'url(#cyanGlow)' : undefined}
+                filter={(currentNote && currentNote.holes[1] > 0) || userHoles[1] > 0 ? 'url(#cyanGlow)' : undefined}
               />
-              <text x="80" y="123" fontSize="8" fontWeight="bold" fill={currentNote?.holes[1] ? '#000' : '#fff'} textAnchor="middle">1</text>
+              <text x="80" y="123" fontSize="8" fontWeight="bold" fill={(currentNote?.holes[1] || userHoles[1]) ? '#000' : '#fff'} textAnchor="middle">1</text>
 
               {/* Hole 2 */}
               <circle
                 cx="80"
                 cy="150"
                 r="8.5"
-                fill={currentNote && currentNote.holes[2] > 0 ? '#00e5ff' : '#1c1917'}
+                fill={(currentNote && currentNote.holes[2] > 0) || userHoles[2] > 0 ? '#00e5ff' : '#1c1917'}
                 stroke="#00e5ff"
                 strokeWidth="2"
-                filter={currentNote && currentNote.holes[2] > 0 ? 'url(#cyanGlow)' : undefined}
+                filter={(currentNote && currentNote.holes[2] > 0) || userHoles[2] > 0 ? 'url(#cyanGlow)' : undefined}
               />
-              <text x="80" y="153" fontSize="8" fontWeight="bold" fill={currentNote?.holes[2] ? '#000' : '#fff'} textAnchor="middle">2</text>
+              <text x="80" y="153" fontSize="8" fontWeight="bold" fill={(currentNote?.holes[2] || userHoles[2]) ? '#000' : '#fff'} textAnchor="middle">2</text>
 
               {/* Hole 3 */}
               <circle
                 cx="80"
                 cy="180"
                 r="8.5"
-                fill={currentNote && currentNote.holes[3] > 0 ? '#00e5ff' : '#1c1917'}
+                fill={(currentNote && currentNote.holes[3] > 0) || userHoles[3] > 0 ? '#00e5ff' : '#1c1917'}
                 stroke="#00e5ff"
                 strokeWidth="2"
-                filter={currentNote && currentNote.holes[3] > 0 ? 'url(#cyanGlow)' : undefined}
+                filter={(currentNote && currentNote.holes[3] > 0) || userHoles[3] > 0 ? 'url(#cyanGlow)' : undefined}
               />
-              <text x="80" y="183" fontSize="8" fontWeight="bold" fill={currentNote?.holes[3] ? '#000' : '#fff'} textAnchor="middle">3</text>
+              <text x="80" y="183" fontSize="8" fontWeight="bold" fill={(currentNote?.holes[3] || userHoles[3]) ? '#000' : '#fff'} textAnchor="middle">3</text>
 
               {/* Hand Separator Bracket */}
               <text x="115" y="152" fontSize="9" fill="#00e5ff" fontWeight="bold">
@@ -691,24 +731,24 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                 cx="80"
                 cy="225"
                 r="8.5"
-                fill={currentNote && currentNote.holes[4] > 0 ? '#10b981' : '#1c1917'}
+                fill={(currentNote && currentNote.holes[4] > 0) || userHoles[4] > 0 ? '#10b981' : '#1c1917'}
                 stroke="#10b981"
                 strokeWidth="2"
-                filter={currentNote && currentNote.holes[4] > 0 ? 'url(#emeraldGlow)' : undefined}
+                filter={(currentNote && currentNote.holes[4] > 0) || userHoles[4] > 0 ? 'url(#emeraldGlow)' : undefined}
               />
-              <text x="80" y="228" fontSize="8" fontWeight="bold" fill={currentNote?.holes[4] ? '#000' : '#fff'} textAnchor="middle">4</text>
+              <text x="80" y="228" fontSize="8" fontWeight="bold" fill={(currentNote?.holes[4] || userHoles[4]) ? '#000' : '#fff'} textAnchor="middle">4</text>
 
               {/* Hole 5 */}
               <circle
                 cx="80"
                 cy="255"
                 r="8.5"
-                fill={currentNote && currentNote.holes[5] > 0 ? '#10b981' : '#1c1917'}
+                fill={(currentNote && currentNote.holes[5] > 0) || userHoles[5] > 0 ? '#10b981' : '#1c1917'}
                 stroke="#10b981"
                 strokeWidth="2"
-                filter={currentNote && currentNote.holes[5] > 0 ? 'url(#emeraldGlow)' : undefined}
+                filter={(currentNote && currentNote.holes[5] > 0) || userHoles[5] > 0 ? 'url(#emeraldGlow)' : undefined}
               />
-              <text x="80" y="258" fontSize="8" fontWeight="bold" fill={currentNote?.holes[5] ? '#000' : '#fff'} textAnchor="middle">5</text>
+              <text x="80" y="258" fontSize="8" fontWeight="bold" fill={(currentNote?.holes[5] || userHoles[5]) ? '#000' : '#fff'} textAnchor="middle">5</text>
 
               {/* Hole 6 (Double Hole) */}
               <g>
@@ -716,7 +756,7 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                   cx="74"
                   cy="290"
                   r="5"
-                  fill={currentNote && currentNote.holes[6] > 0 ? '#10b981' : '#1c1917'}
+                  fill={(currentNote && currentNote.holes[6] > 0) || userHoles[6] > 0 ? '#10b981' : '#1c1917'}
                   stroke="#10b981"
                   strokeWidth="1.5"
                 />
@@ -724,7 +764,7 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                   cx="86"
                   cy="290"
                   r="5"
-                  fill={currentNote && currentNote.holes[6] > 0 ? '#10b981' : '#1c1917'}
+                  fill={(currentNote && currentNote.holes[6] > 0) || userHoles[6] > 0 ? '#10b981' : '#1c1917'}
                   stroke="#10b981"
                   strokeWidth="1.5"
                 />

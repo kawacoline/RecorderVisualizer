@@ -111,6 +111,19 @@ export async function parseMidiFile(
     startTime: n.time,
     duration: n.duration,
   }))
+
+  // Normalize initial lead-in silence so user doesn't wait in silence
+  if (rawEvents.length > 0) {
+    const firstStart = rawEvents[0].startTime
+    const desiredLeadIn = 1.2
+    if (firstStart > desiredLeadIn) {
+      const trimOffset = firstStart - desiredLeadIn
+      rawEvents.forEach((n) => {
+        n.startTime = Math.max(0, n.startTime - trimOffset)
+      })
+    }
+  }
+
   const monophonic = filterToMonophonicMelody(rawEvents)
 
   // Check if transposition is needed
@@ -226,9 +239,11 @@ export async function parseMusicXML(
   scoreParts.forEach((sp) => {
     const partId = sp.getAttribute('id') || ''
     const partName = sp.querySelector('part-name')?.textContent?.trim() || partId
-    // Count notes in this part
+    // Count notes with pitch in this part
     const partNode = doc.querySelector(`part[id="${partId}"]`)
-    const noteCount = partNode ? partNode.querySelectorAll('note:not(rest)').length : 0
+    const noteCount = partNode
+      ? Array.from(partNode.querySelectorAll('note')).filter((n) => n.querySelector('pitch') !== null).length
+      : 0
     const isRecommended = /recorder|rec\b|flute|flauta|dulce|soprano|melody|lead|solo/i.test(partName)
 
     if (noteCount > 0) {
@@ -240,6 +255,23 @@ export async function parseMusicXML(
       })
     }
   })
+
+  // Fallback if score-part list was empty or didn't match part IDs
+  if (availableTracks.length === 0) {
+    const allParts = doc.querySelectorAll('part')
+    allParts.forEach((p, idx) => {
+      const partId = p.getAttribute('id') || `part-${idx + 1}`
+      const noteCount = Array.from(p.querySelectorAll('note')).filter((n) => n.querySelector('pitch') !== null).length
+      if (noteCount > 0) {
+        availableTracks.push({
+          id: partId,
+          name: `Instrument ${idx + 1} (${noteCount} notes)`,
+          noteCount,
+          isRecommended: true,
+        })
+      }
+    })
+  }
 
   // Select target part
   let chosenPartId = typeof targetPartId === 'string' ? targetPartId : ''
@@ -332,6 +364,16 @@ export async function parseMusicXML(
 
   if (rawNotes.length === 0) {
     throw new Error('No notes found in the selected score part.')
+  }
+
+  // Normalize initial lead-in silence so players don't wait in silence
+  const firstNoteStart = rawNotes[0].startTime
+  const desiredLeadIn = 1.2
+  if (firstNoteStart > desiredLeadIn) {
+    const trimOffset = firstNoteStart - desiredLeadIn
+    rawNotes.forEach((n) => {
+      n.startTime = Math.max(0, n.startTime - trimOffset)
+    })
   }
 
   // Filter chords to monophonic lead line
@@ -498,6 +540,18 @@ export function parseAbcNotation(
 
     currentTime += duration
     noteIndex++
+  }
+
+  // Normalize initial lead-in silence so players don't wait in silence
+  if (notes.length > 0) {
+    const firstNoteStart = notes[0].startTime
+    const desiredLeadIn = 1.2
+    if (firstNoteStart > desiredLeadIn) {
+      const trimOffset = firstNoteStart - desiredLeadIn
+      notes.forEach((n) => {
+        n.startTime = Math.max(0, n.startTime - trimOffset)
+      })
+    }
   }
 
   const midis = notes.map((n) => n.midi)

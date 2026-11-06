@@ -92,11 +92,28 @@ export function App() {
 
   // Playback timer loop
   useEffect(() => {
+    if (!isPlaying) {
+      lastFrameTimeRef.current = null
+      if (backingAudioRef.current) {
+        backingAudioRef.current.pause()
+      }
+      return
+    }
+
     let animId: number
+    lastFrameTimeRef.current = performance.now()
+
+    if (backingAudioRef.current) {
+      backingAudioRef.current.playbackRate = playbackRate
+      backingAudioRef.current.play().catch(() => {})
+    }
 
     const tick = (now: number) => {
-      if (lastFrameTimeRef.current !== null && isPlaying) {
-        const deltaSeconds = ((now - lastFrameTimeRef.current) / 1000) * playbackRate
+      if (lastFrameTimeRef.current !== null) {
+        const rawDelta = (now - lastFrameTimeRef.current) / 1000
+        // Strictly prevent negative delta (moving in reverse) and limit max step to 0.1s
+        const deltaSeconds = Math.min(0.1, Math.max(0, rawDelta)) * playbackRate
+
         setCurrentTime((prev) => {
           const next = prev + deltaSeconds
 
@@ -123,23 +140,13 @@ export function App() {
       animId = requestAnimationFrame(tick)
     }
 
-    if (isPlaying) {
-      lastFrameTimeRef.current = performance.now()
-      animId = requestAnimationFrame(tick)
-      if (backingAudioRef.current) {
-        backingAudioRef.current.currentTime = currentTime
-        backingAudioRef.current.playbackRate = playbackRate
-        backingAudioRef.current.play().catch(() => {})
-      }
-    } else {
-      lastFrameTimeRef.current = null
-      if (backingAudioRef.current) {
-        backingAudioRef.current.pause()
-      }
-    }
+    animId = requestAnimationFrame(tick)
 
-    return () => cancelAnimationFrame(animId)
-  }, [isPlaying, playbackRate, songDuration, loopA, loopB, currentTime])
+    return () => {
+      cancelAnimationFrame(animId)
+      lastFrameTimeRef.current = null
+    }
+  }, [isPlaying, playbackRate, songDuration, loopA, loopB])
 
   // Trigger audio note synthesis
   useEffect(() => {
@@ -164,6 +171,7 @@ export function App() {
       setCurrentTime(0)
       playedNoteIdsRef.current.clear()
     }
+    lastFrameTimeRef.current = performance.now()
     setIsPlaying(!isPlaying)
   }
 
@@ -173,6 +181,7 @@ export function App() {
     if (backingAudioRef.current) {
       backingAudioRef.current.currentTime = time
     }
+    lastFrameTimeRef.current = performance.now()
     if (currentSong) {
       playedNoteIdsRef.current.forEach((id) => {
         const note = currentSong.notes.find((n) => n.id === id)
@@ -191,6 +200,7 @@ export function App() {
       backingAudioRef.current.currentTime = restartTime
     }
     playedNoteIdsRef.current.clear()
+    lastFrameTimeRef.current = null
     setIsPlaying(false)
   }
 
@@ -214,7 +224,12 @@ export function App() {
     setCurrentSong(newSong)
     setCurrentTime(0)
     playedNoteIdsRef.current.clear()
+    lastFrameTimeRef.current = null
     setIsPlaying(false)
+    if (backingAudioRef.current) {
+      backingAudioRef.current.pause()
+      backingAudioRef.current.currentTime = 0
+    }
   }
 
   const handleDeleteSong = async (songId: string) => {
