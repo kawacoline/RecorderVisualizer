@@ -8,11 +8,20 @@ import {
   midiToNoteName,
 } from './recorderFingering'
 
+export interface TrackOption {
+  id: string | number
+  name: string
+  noteCount: number
+  isRecommended: boolean
+}
+
 export interface ParsedScore {
   title: string
   composer?: string
   tempo: number
   notes: NoteEvent[]
+  availableTracks: TrackOption[]
+  selectedTrackId: string | number
   timeSignature?: string
   keySignature?: string
   needsTransposition?: boolean
@@ -20,35 +29,95 @@ export interface ParsedScore {
 }
 
 /**
+ * Filter chord notes to keep monophonic soprano melody (highest pitch per timestamp)
+ */
+function filterToMonophonicMelody(notes: { pitch: string; midi: number; startTime: number; duration: number; measure?: number }[]) {
+  if (notes.length === 0) return []
+
+  // Group notes starting within 0.05 seconds of each other
+  const timeThreshold = 0.04
+  const sorted = [...notes].sort((a, b) => a.startTime - b.startTime)
+  const result: typeof notes = []
+
+  let currentCluster: typeof notes = [sorted[0]]
+
+  for (let i = 1; i < sorted.length; i++) {
+    const n = sorted[i]
+    if (Math.abs(n.startTime - currentCluster[0].startTime) < timeThreshold) {
+      currentCluster.push(n)
+    } else {
+      // Pick highest note from cluster
+      currentCluster.sort((a, b) => b.midi - a.midi)
+      result.push(currentCluster[0])
+      currentCluster = [n]
+    }
+  }
+
+  if (currentCluster.length > 0) {
+    currentCluster.sort((a, b) => b.midi - a.midi)
+    result.push(currentCluster[0])
+  }
+
+  return result
+}
+
+/**
  * Parses a MIDI file from ArrayBuffer
  */
 export async function parseMidiFile(
   data: ArrayBuffer,
-  fingeringSystem: 'baroque' | 'german' = 'baroque'
+  fingeringSystem: 'baroque' | 'german' = 'baroque',
+  targetTrackId?: string | number
 ): Promise<ParsedScore> {
   const midi = new Midi(data)
   const title = midi.name || 'Imported MIDI'
   const tempo = midi.header.tempos.length > 0 ? Math.round(midi.header.tempos[0].bpm) : 120
 
-  // Find the best melody track
-  let selectedTrack = midi.tracks[0]
-  let maxNotes = 0
-  for (const track of midi.tracks) {
-    if (track.notes.length > maxNotes) {
-      maxNotes = track.notes.length
-      selectedTrack = track
-    }
-  }
+  // Inspect all tracks
+  const availableTracks: TrackOption[] = midi.tracks
+    .map((track, idx) => {
+      const name = track.name?.trim() || `Track ${idx + 1}`
+      const isRecommended = /recorder|rec\b|flute|flauta|dulce|soprano|melody|lead|solo/i.test(name)
+      return {
+        id: idx,
+        name: `${name} (${track.notes.length} notes)`,
+        noteCount: track.notes.length,
+        isRecommended,
+      }
+    })
+    .filter((t) => t.noteCount > 0)
 
-  if (!selectedTrack || selectedTrack.notes.length === 0) {
+  if (availableTracks.length === 0) {
     throw new Error('No musical notes found in this MIDI file.')
   }
 
+  // Choose track: targetTrackId if provided, or first recommended track, or highest note count
+  let selectedIdx = typeof targetTrackId === 'number' ? targetTrackId : -1
+  if (selectedIdx < 0 || selectedIdx >= midi.tracks.length) {
+    const recTrack = availableTracks.find((t) => t.isRecommended)
+    if (recTrack) {
+      selectedIdx = recTrack.id as number
+    } else {
+      selectedIdx = availableTracks[0].id as number
+    }
+  }
+
+  const selectedTrack = midi.tracks[selectedIdx] || midi.tracks[0]
+
+  // Filter chords to monophonic lead melody
+  const rawEvents = selectedTrack.notes.map((n) => ({
+    pitch: n.name,
+    midi: n.midi,
+    startTime: n.time,
+    duration: n.duration,
+  }))
+  const monophonic = filterToMonophonicMelody(rawEvents)
+
   // Check if transposition is needed
-  const rawMidis = selectedTrack.notes.map((n) => n.midi)
+  const rawMidis = monophonic.map((n) => n.midi)
   const shift = calculateBestTransposition(rawMidis)
 
-  const notes: NoteEvent[] = selectedTrack.notes.map((n, idx) => {
+  const notes: NoteEvent[] = monophonic.map((n, idx) => {
     const finalMidi = n.midi + shift
     const { letter, solfege } = getDisplayLabels(finalMidi)
     const fingering = getFingering(finalMidi, fingeringSystem)
@@ -58,7 +127,7 @@ export async function parseMidiFile(
       id: `midi-note-${idx}`,
       pitch: `${name}${octave}`,
       midi: finalMidi,
-      startTime: n.time,
+      startTime: n.startTime,
       duration: Math.max(0.1, n.duration),
       letter,
       solfege,
@@ -67,13 +136,14 @@ export async function parseMidiFile(
     }
   })
 
-  // Sort chronologically
   notes.sort((a, b) => a.startTime - b.startTime)
 
   return {
     title,
     tempo,
     notes,
+    availableTracks,
+    selectedTrackId: selectedIdx,
     timeSignature: midi.header.timeSignatures.length > 0
       ? `${midi.header.timeSignatures[0].timeSignature[0]}/${midi.header.timeSignatures[0].timeSignature[1]}`
       : '4/4',
@@ -87,17 +157,16 @@ export async function parseMidiFile(
  */
 export async function parseMusicXML(
   fileData: ArrayBuffer | string,
-  fingeringSystem: 'baroque' | 'german' = 'baroque'
+  fingeringSystem: 'baroque' | 'german' = 'baroque',
+  targetPartId?: string | number
 ): Promise<ParsedScore> {
   let xmlString = ''
 
   if (typeof fileData === 'string') {
     xmlString = fileData
   } else {
-    // Check if it's a zip file (.mxml)
     try {
       const zip = await JSZip.loadAsync(fileData)
-      // Look for META-INF/container.xml or first .xml
       const containerFile = zip.file('META-INF/container.xml')
       let rootXmlPath = ''
       if (containerFile) {
@@ -111,7 +180,6 @@ export async function parseMusicXML(
       }
 
       if (!rootXmlPath) {
-        // Find any .xml file not in META-INF
         for (const filename of Object.keys(zip.files)) {
           if (filename.endsWith('.xml') && !filename.startsWith('META-INF')) {
             rootXmlPath = filename
@@ -123,12 +191,10 @@ export async function parseMusicXML(
       if (rootXmlPath && zip.file(rootXmlPath)) {
         xmlString = await zip.file(rootXmlPath)!.async('text')
       } else {
-        // Fallback: decode as UTF-8 text directly
         const decoder = new TextDecoder('utf-8')
         xmlString = decoder.decode(fileData)
       }
     } catch {
-      // Not a zip, direct XML string
       const decoder = new TextDecoder('utf-8')
       xmlString = decoder.decode(fileData)
     }
@@ -153,6 +219,39 @@ export async function parseMusicXML(
     if (t > 0) tempo = Math.round(t)
   }
 
+  // Discover all parts / instruments
+  const scoreParts = doc.querySelectorAll('score-part')
+  const availableTracks: TrackOption[] = []
+
+  scoreParts.forEach((sp) => {
+    const partId = sp.getAttribute('id') || ''
+    const partName = sp.querySelector('part-name')?.textContent?.trim() || partId
+    // Count notes in this part
+    const partNode = doc.querySelector(`part[id="${partId}"]`)
+    const noteCount = partNode ? partNode.querySelectorAll('note:not(rest)').length : 0
+    const isRecommended = /recorder|rec\b|flute|flauta|dulce|soprano|melody|lead|solo/i.test(partName)
+
+    if (noteCount > 0) {
+      availableTracks.push({
+        id: partId,
+        name: `${partName} (${noteCount} notes)`,
+        noteCount,
+        isRecommended,
+      })
+    }
+  })
+
+  // Select target part
+  let chosenPartId = typeof targetPartId === 'string' ? targetPartId : ''
+  if (!chosenPartId || !availableTracks.some((t) => t.id === chosenPartId)) {
+    const recPart = availableTracks.find((t) => t.isRecommended)
+    chosenPartId = recPart ? (recPart.id as string) : (availableTracks[0]?.id as string) || ''
+  }
+
+  // Parse notes from target part ONLY
+  const targetPartNode = chosenPartId ? doc.querySelector(`part[id="${chosenPartId}"]`) : doc.querySelector('part')
+  const measures = targetPartNode ? targetPartNode.querySelectorAll('measure') : doc.querySelectorAll('part measure')
+
   const stepToMidiBase: Record<string, number> = {
     C: 0,
     D: 2,
@@ -175,17 +274,14 @@ export async function parseMusicXML(
   let currentTime = 0
   let measureIndex = 0
 
-  const measures = doc.querySelectorAll('part measure')
   measures.forEach((measure) => {
     measureIndex++
-    // Check divisions
     const divNode = measure.querySelector('divisions')
     if (divNode) {
       const d = parseFloat(divNode.textContent || '1')
       if (d > 0) divisions = d
     }
 
-    // Check tempo in measure
     const measureSound = measure.querySelector('sound[tempo]')
     if (measureSound) {
       const t = parseFloat(measureSound.getAttribute('tempo') || '120')
@@ -193,10 +289,9 @@ export async function parseMusicXML(
     }
 
     const secondsPerDivision = 60 / (tempo * divisions)
-
     const notesInMeasure = measure.querySelectorAll('note')
+
     notesInMeasure.forEach((note) => {
-      // Check if rest
       const isRest = note.querySelector('rest') !== null
       const durationVal = parseFloat(note.querySelector('duration')?.textContent || '0')
       const durationSeconds = durationVal * secondsPerDivision
@@ -206,7 +301,6 @@ export async function parseMusicXML(
         return
       }
 
-      // Check pitch
       const pitchNode = note.querySelector('pitch')
       if (!pitchNode) {
         currentTime += durationSeconds
@@ -219,8 +313,6 @@ export async function parseMusicXML(
 
       const base = stepToMidiBase[step] ?? 0
       const midi = (octave + 1) * 12 + base + alter
-
-      // Check for chord
       const isChord = note.querySelector('chord') !== null
       const noteStartTime = isChord ? currentTime - durationSeconds : currentTime
 
@@ -239,14 +331,17 @@ export async function parseMusicXML(
   })
 
   if (rawNotes.length === 0) {
-    throw new Error('No notes found in the provided MusicXML file.')
+    throw new Error('No notes found in the selected score part.')
   }
 
+  // Filter chords to monophonic lead line
+  const monophonic = filterToMonophonicMelody(rawNotes)
+
   // Calculate transposition
-  const rawMidis = rawNotes.map((n) => n.midi)
+  const rawMidis = monophonic.map((n) => n.midi)
   const shift = calculateBestTransposition(rawMidis)
 
-  const notes: NoteEvent[] = rawNotes.map((n, idx) => {
+  const notes: NoteEvent[] = monophonic.map((n, idx) => {
     const finalMidi = n.midi + shift
     const { letter, solfege } = getDisplayLabels(finalMidi)
     const fingering = getFingering(finalMidi, fingeringSystem)
@@ -261,7 +356,7 @@ export async function parseMusicXML(
       letter,
       solfege,
       holes: fingering.holes,
-      measureIndex: n.measure,
+      measureIndex: (n as any).measure,
       noteIndex: idx,
     }
   })
@@ -273,6 +368,8 @@ export async function parseMusicXML(
     composer,
     tempo,
     notes,
+    availableTracks,
+    selectedTrackId: chosenPartId,
     needsTransposition: shift !== 0,
     recommendedShift: shift,
   }
@@ -288,7 +385,7 @@ export function parseAbcNotation(
   const lines = abcString.split('\n')
   let title = 'Imported ABC Tune'
   let tempo = 120
-  let defaultLength = 1 / 8 // L: 1/8
+  let defaultLength = 1 / 8
   let key = 'C'
 
   const notes: NoteEvent[] = []
@@ -313,8 +410,6 @@ export function parseAbcNotation(
     }
   }
 
-  // Parse notes from musicBody
-  // ABC token pattern: accidentals (^, _, =), pitch (C-B, c-b), octave (', ,), duration multiplier (/2, 2, 3/2, etc.)
   const tokenRegex = /([_\\^=]*)([A-Ga-g])([,']*)(\d*\/?\d*)/g
   const secondsPerWholeNote = (60 / tempo) * 4
   const baseNoteDuration = secondsPerWholeNote * defaultLength
@@ -345,7 +440,6 @@ export function parseAbcNotation(
 
     if (!noteChar) continue
 
-    // Determine base octave
     const isLower = noteChar === noteChar.toLowerCase()
     let octave = isLower ? 5 : 4
     for (const char of octaveMod) {
@@ -353,7 +447,6 @@ export function parseAbcNotation(
       if (char === ',') octave--
     }
 
-    // Determine semitone
     const step = noteChar.toUpperCase()
     let alter = 0
     if (accidental.includes('^')) alter = 1
@@ -372,7 +465,6 @@ export function parseAbcNotation(
     }
     const midi = (octave + 1) * 12 + stepBase[step] + alter
 
-    // Duration calculation
     let mult = 1
     if (durationMod) {
       if (durationMod === '/') mult = 0.5
@@ -408,7 +500,6 @@ export function parseAbcNotation(
     noteIndex++
   }
 
-  // Best transposition
   const midis = notes.map((n) => n.midi)
   const shift = calculateBestTransposition(midis)
 
@@ -431,6 +522,8 @@ export function parseAbcNotation(
     title,
     tempo,
     notes: finalNotes,
+    availableTracks: [{ id: 'abc-1', name: 'ABC Melody', noteCount: finalNotes.length, isRecommended: true }],
+    selectedTrackId: 'abc-1',
     keySignature: key,
     needsTransposition: shift !== 0,
     recommendedShift: shift,
@@ -442,17 +535,18 @@ export function parseAbcNotation(
  */
 export async function parsePartitureFile(
   file: File,
-  fingeringSystem: 'baroque' | 'german' = 'baroque'
+  fingeringSystem: 'baroque' | 'german' = 'baroque',
+  targetTrackId?: string | number
 ): Promise<ParsedScore> {
   const ext = file.name.split('.').pop()?.toLowerCase() || ''
   const buffer = await file.arrayBuffer()
 
   if (ext === 'mid' || ext === 'midi') {
-    return parseMidiFile(buffer, fingeringSystem)
+    return parseMidiFile(buffer, fingeringSystem, targetTrackId)
   }
 
   if (ext === 'xml' || ext === 'musicxml' || ext === 'mxml') {
-    return parseMusicXML(buffer, fingeringSystem)
+    return parseMusicXML(buffer, fingeringSystem, targetTrackId)
   }
 
   if (ext === 'abc') {
@@ -460,10 +554,9 @@ export async function parsePartitureFile(
     return parseAbcNotation(text, fingeringSystem)
   }
 
-  // Attempt text parsing (ABC or MusicXML)
   const text = new TextDecoder('utf-8').decode(buffer)
   if (text.includes('<?xml') || text.includes('<score-partwise') || text.includes('<score-timewise')) {
-    return parseMusicXML(text, fingeringSystem)
+    return parseMusicXML(text, fingeringSystem, targetTrackId)
   }
 
   return parseAbcNotation(text, fingeringSystem)

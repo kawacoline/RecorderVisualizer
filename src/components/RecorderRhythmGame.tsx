@@ -120,8 +120,8 @@ export const RecorderRhythmGame: React.FC<Props> = ({
           ctx.fillStyle = isThumb
             ? 'rgba(245, 158, 11, 0.04)'
             : isLeftHand
-            ? 'rgba(0, 229, 255, 0.03)'
-            : 'rgba(16, 185, 129, 0.03)'
+              ? 'rgba(0, 229, 255, 0.03)'
+              : 'rgba(16, 185, 129, 0.03)'
           ctx.fillRect(0, laneY, width, laneHeight)
 
           // Lane divider
@@ -254,8 +254,8 @@ export const RecorderRhythmGame: React.FC<Props> = ({
           ctx.fillStyle = isThumb
             ? 'rgba(245, 158, 11, 0.04)'
             : isLeftHand
-            ? 'rgba(0, 229, 255, 0.03)'
-            : 'rgba(16, 185, 129, 0.03)'
+              ? 'rgba(0, 229, 255, 0.03)'
+              : 'rgba(16, 185, 129, 0.03)'
           ctx.fillRect(laneX, 0, laneWidth, height)
 
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
@@ -396,22 +396,20 @@ export const RecorderRhythmGame: React.FC<Props> = ({
           <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setFlowDirection('horizontal')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                flowDirection === 'horizontal'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${flowDirection === 'horizontal'
                   ? 'bg-cyan-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <ArrowRight className="w-3.5 h-3.5" />
               Horizontal Flow
             </button>
             <button
               onClick={() => setFlowDirection('vertical')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                flowDirection === 'vertical'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${flowDirection === 'vertical'
                   ? 'bg-cyan-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <ArrowDown className="w-3.5 h-3.5" />
               Vertical Flow
@@ -435,11 +433,10 @@ export const RecorderRhythmGame: React.FC<Props> = ({
                   return (
                     <div
                       key={lane.id}
-                      className={`flex items-center justify-between px-2 py-1 rounded-lg transition-all ${
-                        isActive
+                      className={`flex items-center justify-between px-2 py-1 rounded-lg transition-all ${isActive
                           ? 'bg-slate-800 border border-slate-700 shadow-sm'
                           : 'opacity-80'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-1.5">
                         <span
