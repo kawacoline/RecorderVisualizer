@@ -86,6 +86,14 @@ export async function loadSongsFromDb(): Promise<SongMetadata[]> {
             resolve([])
           }
         } else {
+          // Check if there are any new presets added to PRESET_SONGS that aren't in result and haven't been deleted
+          const existingIds = new Set(result.map((s) => s.id))
+          const missingPresets = initialPresets.filter((p) => !existingIds.has(p.id))
+          if (missingPresets.length > 0) {
+            saveMultipleSongsToDb(missingPresets)
+            resolve([...missingPresets, ...result])
+            return
+          }
           resolve(result)
         }
       }

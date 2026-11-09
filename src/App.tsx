@@ -385,6 +385,7 @@ export function App() {
               </span>
               {[
                 { key: 'all', label: 'Todas' },
+                { key: 'Práctica', label: '🎯 Ejercicios' },
                 { key: 'Gaming & Pop', label: '🎮 EBF & Juegos' },
                 { key: 'Touhou & Anime', label: '🌸 Bad Apple' },
                 { key: 'Folk & Sea Shanty', label: '⚓ Folk & Marinera' },

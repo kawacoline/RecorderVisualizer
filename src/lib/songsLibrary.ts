@@ -287,7 +287,48 @@ const JOURNEY_EAST_SEQUENCE: [string, number][] = [
   ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 1.0], ['G4', 0.5], ['A4', 2.5],
 ]
 
+// -------------------------------------------------------------
+// 7. EJERCICIO: DO# - SI - LA (Práctica de digitación y ritmo)
+// Do# Si Do# La Do# La Si Do#
+// Ritmo: Corchea (0.5), Negra (1.0), Negra (1.0), Negra con puntillo (1.5),
+//        Corchea (0.5), Corchea (0.5), Corchea (0.5), Corchea (0.5)
+// -------------------------------------------------------------
+const EJERCICIO_FLAUTA_BPM = 120
+
+const EJERCICIO_FLAUTA_SEQUENCE: [string, number][] = [
+  // Vuelta 1
+  ['C#5', 0.5], ['B4', 1.0], ['C#5', 1.0], ['A4', 1.5],
+  ['C#5', 0.5], ['A4', 0.5], ['B4', 0.5], ['C#5', 0.5],
+  ['REST', 2.0],
+  // Vuelta 2
+  ['C#5', 0.5], ['B4', 1.0], ['C#5', 1.0], ['A4', 1.5],
+  ['C#5', 0.5], ['A4', 0.5], ['B4', 0.5], ['C#5', 0.5],
+  ['REST', 2.0],
+  // Vuelta 3
+  ['C#5', 0.5], ['B4', 1.0], ['C#5', 1.0], ['A4', 1.5],
+  ['C#5', 0.5], ['A4', 0.5], ['B4', 0.5], ['C#5', 0.5],
+  ['REST', 2.0],
+  // Vuelta 4
+  ['C#5', 0.5], ['B4', 1.0], ['C#5', 1.0], ['A4', 1.5],
+  ['C#5', 0.5], ['A4', 0.5], ['B4', 0.5], ['C#5', 0.5],
+]
+
 export const PRESET_SONGS: SongMetadata[] = [
+  {
+    id: 'ejercicio-do-sostenido',
+    title: 'Ejercicio: Do# Si Do# La',
+    subtitle: 'Frase de digitación y ritmo • 4 Vueltas',
+    artist: 'Práctica para Flauta Dulce',
+    category: 'Práctica',
+    tempo: EJERCICIO_FLAUTA_BPM,
+    bannerCta: 'Frase de Digitación',
+    speedLabel: '120 BPM',
+    bottomTitle: 'EJERCICIO DO# SI LA',
+    bottomSubtitle: 'Práctica',
+    silhouettePreset: 'flute',
+    fingeringSystem: 'baroque',
+    notes: createNotesFromSequence(EJERCICIO_FLAUTA_SEQUENCE, EJERCICIO_FLAUTA_BPM),
+  },
   {
     id: 'journey-to-the-east',
     title: 'Journey to the East',

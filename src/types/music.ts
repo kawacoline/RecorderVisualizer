@@ -29,7 +29,7 @@ export interface SongMetadata {
   title: string
   subtitle: string
   artist: string
-  category: 'Touhou & Anime' | 'Folk & Sea Shanty' | 'Classical' | 'Gaming & Pop' | 'Custom'
+  category: 'Touhou & Anime' | 'Folk & Sea Shanty' | 'Classical' | 'Gaming & Pop' | 'Práctica' | 'Custom'
   tempo: number // BPM
   bannerCta: string // e.g. "Subscribe for daily tutorials"
   speedLabel: string // e.g. '"SLOWED"'
@@ -37,7 +37,7 @@ export interface SongMetadata {
   bottomSubtitle: string // e.g. "Recorder Tutorial"
   channelHandle?: string
   themeColor?: ThemeColor
-  silhouettePreset: 'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'tetris' | 'titanic' | 'custom'
+  silhouettePreset: 'reimu' | 'sailor' | 'greentea' | 'beethoven' | 'tetris' | 'titanic' | 'flute' | 'custom'
   customSilhouetteUrl?: string
   fingeringSystem: 'baroque' | 'german'
   notes: NoteEvent[]
